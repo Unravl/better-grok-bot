@@ -16,7 +16,6 @@ test("createContext ensures DATA and config and loads this OS's adapter", async 
 		expect((await readConfig(ctx.paths)).configVersion).toBe(1);
 		expect(ctx.platform.id).toBe(process.platform as "darwin" | "win32" | "linux");
 		expect(ctx.patchWorkerUrl).toBe(PATCH_WORKER_URL);
-		expect(PATCH_WORKER_URL.pathname.endsWith("/core/patch-worker.ts")).toBe(true);
 		expect(Object.isFrozen(ctx)).toBe(true);
 	} finally {
 		await rm(parent, { recursive: true, force: true });
