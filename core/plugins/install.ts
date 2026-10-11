@@ -7,6 +7,7 @@ import { mutateConfig, readConfig } from "../config.ts";
 import type { CoreContext } from "../context.ts";
 import { BgbError, errorMessage } from "../errors.ts";
 import { readJsonFile, writeJsonAtomic } from "../json-file.ts";
+import { withLock } from "../lock.ts";
 import { BUNDLED_PLUGINS } from "./bundled.ts";
 import { type SourceRecord, readSourceRecord } from "./community.ts";
 import { CORE_HOOKS } from "./core.ts";
@@ -132,11 +133,16 @@ function inspectRoot(ctx: CoreContext): string {
 	return path.join(ctx.paths.cache, "inspect");
 }
 
+/** The installed package an update was inspected against (its `.bgb-source.json` identity). */
+type ExpectedInstall = Pick<SourceRecord, "source" | "sha256" | "installedAt">;
+
 interface InspectionRecord {
 	source: string;
 	sha256: string;
 	createdAt: number;
 	json: PluginPackageJson;
+	/** Set by `updatePlugin`: the commit fails unless this package is still the installed one. */
+	expected?: ExpectedInstall;
 }
 
 async function readInspectionRecord(dir: string): Promise<InspectionRecord | undefined> {
@@ -182,9 +188,10 @@ async function describeReplaced(ctx: CoreContext, id: string): Promise<Inspectio
 
 /**
  * Fetches or copies the package once, hashes it, extracts it to `cache/inspect/<inspectionId>/` and
- * validates it. `installInspected` later installs exactly these bytes.
+ * validates it. `installInspected` later installs exactly these bytes; with `expected`, only while that
+ * package is still the installed one.
  */
-export async function inspectSource(ctx: CoreContext, source: string): Promise<Inspection> {
+export async function inspectSource(ctx: CoreContext, source: string, opts: { expected?: ExpectedInstall } = {}): Promise<Inspection> {
 	const spec = parseSource(source);
 	await pruneInspections(ctx);
 	const { files, sha256 } = await fetchPackage(spec);
@@ -208,7 +215,7 @@ export async function inspectSource(ctx: CoreContext, source: string): Promise<I
 		}
 		const json = await validatePackage(parsed, pkgDir);
 		if (isReservedId(json.id)) throw new BgbError("bad-request", `invalid plugin.json: id "${json.id}" is reserved`);
-		const record: InspectionRecord = { source: sourceString(spec), sha256, createdAt: Date.now(), json };
+		const record: InspectionRecord = { source: sourceString(spec), sha256, createdAt: Date.now(), json, ...(opts.expected && { expected: opts.expected }) };
 		await writeJsonAtomic(path.join(dir, "inspection.json"), record);
 		return { inspectionId, sha256, json, replaces: await describeReplaced(ctx, json.id) };
 	} catch (error) {
@@ -225,19 +232,35 @@ async function takeInspection(ctx: CoreContext, inspectionId: string): Promise<{
 	return { dir, record };
 }
 
+/** `not-found` when plugin `id` is gone, `conflict` unless its install record is still `expected`. The caller holds the build lock. */
+async function assertInstalled(ctx: CoreContext, id: string, expected: ExpectedInstall): Promise<void> {
+	const installed = await readSourceRecord(communityDir(ctx, id));
+	if (installed === null || installed.source !== expected.source || installed.sha256 !== expected.sha256 || installed.installedAt !== expected.installedAt) {
+		throw new BgbError("conflict", `plugin ${id} was replaced while it was being updated; update it again`);
+	}
+}
+
 /**
- * Installs exactly the inspected package as `plugins/<id>/` and records `grants[id] = acceptPermissions`.
- * `permission-denied` unless `acceptPermissions` covers every requested permission. A new id is enabled;
- * a replaced id keeps its enabled/disabled state.
+ * Installs the inspection as `plugins/<id>/` and commits `grants[id] = acceptPermissions` (a new id is
+ * also enabled), putting the previous package back when the commit fails; then consumes the inspection.
+ * `permission-denied` unless `acceptPermissions` covers every requested permission; an update inspection
+ * whose package was uninstalled or replaced meanwhile is discarded with `not-found`/`conflict`. The caller
+ * holds the build lock; returns the replaced package dir to delete once it is released.
  */
-export async function installInspected(
+async function commitInspection(
 	ctx: CoreContext,
 	inspectionId: string,
-	opts: { acceptPermissions: readonly Permission[] },
-): Promise<{ id: string }> {
+	acceptPermissions: readonly Permission[],
+): Promise<{ id: string; old: string | undefined }> {
 	const { dir, record } = await takeInspection(ctx, inspectionId);
-	const { json } = record;
-	const accepted = PERMISSIONS.filter((permission) => opts.acceptPermissions.includes(permission));
+	const { json, expected } = record;
+	if (expected !== undefined) {
+		await assertInstalled(ctx, json.id, expected).catch(async (error: unknown) => {
+			await rm(dir, { recursive: true, force: true });
+			throw error;
+		});
+	}
+	const accepted = PERMISSIONS.filter((permission) => acceptPermissions.includes(permission));
 	const missing = json.permissions.filter((permission) => !accepted.includes(permission));
 	if (missing.length > 0) throw new BgbError("permission-denied", `plugin ${json.id} needs permission ${missing.join(", ")}`);
 
@@ -258,13 +281,35 @@ export async function installInspected(
 		await rm(temp, { recursive: true, force: true });
 		throw error;
 	}
-	if (!isNew) await rm(old, { recursive: true, force: true });
-	await mutateConfig(ctx.paths, (config) => {
-		config.grants[json.id] = accepted;
-		if (isNew) config.disabledPlugins = config.disabledPlugins.filter((id) => id !== json.id);
-	});
+	try {
+		await mutateConfig(ctx.paths, (config) => {
+			config.grants[json.id] = accepted;
+			if (isNew) config.disabledPlugins = config.disabledPlugins.filter((id) => id !== json.id);
+		});
+	} catch (error) {
+		await rename(target, temp);
+		if (!isNew) await rename(old, target);
+		await rm(temp, { recursive: true, force: true });
+		throw error;
+	}
 	await rm(dir, { recursive: true, force: true });
-	return { id: json.id };
+	return { id: json.id, old: isNew ? undefined : old };
+}
+
+/**
+ * Installs exactly the inspected package as `plugins/<id>/` and records `grants[id] = acceptPermissions`.
+ * `permission-denied` unless `acceptPermissions` covers every requested permission. A new id is enabled;
+ * a replaced id keeps its enabled/disabled state. The swap and the grant commit run under the build lock,
+ * so builds and other installs, updates and uninstalls never see one without the other.
+ */
+export async function installInspected(
+	ctx: CoreContext,
+	inspectionId: string,
+	opts: { acceptPermissions: readonly Permission[] },
+): Promise<{ id: string }> {
+	const { id, old } = await withLock(ctx.paths, "build", () => commitInspection(ctx, inspectionId, opts.acceptPermissions));
+	if (old !== undefined) await rm(old, { recursive: true, force: true });
+	return { id };
 }
 
 /** `inspectSource` + `installInspected` (`plugins install --yes`, tests). */
@@ -286,28 +331,41 @@ function communityDir(ctx: CoreContext, id: string): string {
 	return dir;
 }
 
-/** Removes a community plugin with its grant and disabled flag. Core/bundled → `bad-request`; unknown → `not-found`. */
+/**
+ * Removes a community plugin with its grant and disabled flag, under the build lock like installs.
+ * Core/bundled → `bad-request`; unknown → `not-found`.
+ */
 export async function uninstallPlugin(ctx: CoreContext, id: string): Promise<void> {
-	const dir = communityDir(ctx, id);
-	const old = path.join(ctx.paths.plugins, `.old-${Date.now()}-${randomBytes(6).toString("hex")}`);
-	await rename(dir, old);
-	await rm(old, { recursive: true, force: true });
-	await mutateConfig(ctx.paths, (config) => {
-		delete config.grants[id];
-		config.disabledPlugins = config.disabledPlugins.filter((disabled) => disabled !== id);
+	const old = await withLock(ctx.paths, "build", async () => {
+		const dir = communityDir(ctx, id);
+		const old = path.join(ctx.paths.plugins, `.old-${Date.now()}-${randomBytes(6).toString("hex")}`);
+		await rename(dir, old);
+		try {
+			await mutateConfig(ctx.paths, (config) => {
+				delete config.grants[id];
+				config.disabledPlugins = config.disabledPlugins.filter((disabled) => disabled !== id);
+			});
+		} catch (error) {
+			await rename(old, dir);
+			throw error;
+		}
+		return old;
 	});
+	await rm(old, { recursive: true, force: true });
 }
 
 /**
  * Re-inspects a community plugin's recorded source. Same version and bytes → `current`. Permissions
  * within the current grant → installs it (keeping state and grant) → `updated`. Otherwise installs
  * nothing and returns `needs-consent` with the inspection to confirm through `installInspected`.
+ * The grant check and install run under the build lock; `conflict` when the plugin was replaced
+ * meanwhile, `not-found` when it was uninstalled.
  */
 export async function updatePlugin(ctx: CoreContext, id: string): Promise<PluginUpdateResult> {
-	const dir = communityDir(ctx, id);
-	const record = await readSourceRecord(dir);
+	const record = await readSourceRecord(communityDir(ctx, id));
 	if (record === null) throw new BgbError("not-found", `plugin ${id} has no install record (${SOURCE_RECORD}); reinstall it`);
-	const inspection = await inspectSource(ctx, record.source);
+	const expected: ExpectedInstall = { source: record.source, sha256: record.sha256, installedAt: record.installedAt };
+	const inspection = await inspectSource(ctx, record.source, { expected });
 	const discard = (): Promise<void> => rm(path.join(inspectRoot(ctx), inspection.inspectionId), { recursive: true, force: true });
 	if (inspection.json.id !== id) {
 		await discard();
@@ -317,9 +375,17 @@ export async function updatePlugin(ctx: CoreContext, id: string): Promise<Plugin
 		await discard();
 		return { state: "current" };
 	}
-	const granted = (await readConfig(ctx.paths)).grants[id] ?? [];
-	const added = inspection.json.permissions.filter((permission) => !granted.includes(permission));
-	if (added.length > 0) return { state: "needs-consent", inspectionId: inspection.inspectionId, version: inspection.json.version, added };
-	await installInspected(ctx, inspection.inspectionId, { acceptPermissions: granted });
-	return { state: "updated", version: inspection.json.version };
+	const { result, old } = await withLock(ctx.paths, "build", async (): Promise<{ result: PluginUpdateResult; old?: string }> => {
+		await assertInstalled(ctx, id, expected);
+		const granted = (await readConfig(ctx.paths)).grants[id] ?? [];
+		const added = inspection.json.permissions.filter((permission) => !granted.includes(permission));
+		if (added.length > 0) return { result: { state: "needs-consent", inspectionId: inspection.inspectionId, version: inspection.json.version, added } };
+		const { old } = await commitInspection(ctx, inspection.inspectionId, granted);
+		return { result: { state: "updated", version: inspection.json.version }, old };
+	}).catch(async (error: unknown) => {
+		await discard();
+		throw error;
+	});
+	if (old !== undefined) await rm(old, { recursive: true, force: true });
+	return result;
 }

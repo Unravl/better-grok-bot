@@ -33,7 +33,7 @@ const MAC_BUNDLE_ID = "com.anysphere.sand";
 const HOOK_ENV = "VITE_DEV_SERVER_URL";
 const DEBUG_PORT = 9333;
 const MOVED_PORT = 39321;
-const CORE_AND_BUNDLED = ["bgb-react", "bgb-settings", "bgb-client", "output-device", "push-to-talk", "startup", "voice-keepalive"];
+const CORE_AND_BUNDLED = ["bgb-react", "bgb-settings", "bgb-client", "bgb-brand", "bot-instructions", "chat-search", "output-device", "push-to-talk", "sidebar-folders", "startup", "voice-dock", "voice-keepalive", "weekly-usage"];
 const LINUX_MARKER = "X-BetterGrokBot-Original-Exec";
 
 const os = process.platform;

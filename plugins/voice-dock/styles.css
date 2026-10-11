@@ -1,0 +1,130 @@
+/*
+ * The app's voice-call popover, docked in the sidebar footer as one compact row (about 36px) that fits any
+ * sidebar width.
+ *
+ * Root cause of the overflow: the floating popover sizes itself to its content (`width: max-content`, 320px when
+ * failed) and every part of its row refuses to shrink: the frame has 12px padding and 16px gaps, the chrome row
+ * a 24px gap and `flex-shrink: 0`, the activity area (avatar + waveform) `flex-shrink: 0` with a fixed 36px
+ * avatar slot and a fixed 96px waveform, and the controls `flex-shrink: 0` with 44px buttons (the bot avatar
+ * orb is drawn at its large size too). That is about 330px of unshrinkable content in a ~240px sidebar.
+ *
+ * Here: the panel and every flex child take the sidebar width with `min-width: 0`, the waveform shrinks first,
+ * gaps and padding are tightened, and buttons, icons and the avatar are 24px. The app's atomic classes carry
+ * high specificity, so overrides use !important; they apply only inside the dock.
+ */
+.bgb-voice-dock {
+	min-width: 0;
+	max-width: 100%;
+	margin-bottom: var(--cursor-spacing-2, 8px);
+}
+
+.bgb-voice-dock [data-voice-call-popover] {
+	position: relative !important;
+	position-anchor: none !important;
+	position-area: none !important;
+	inset: auto !important;
+	margin: 0 !important;
+	z-index: auto !important;
+	box-sizing: border-box !important;
+	width: 100% !important;
+	min-width: 0 !important;
+	max-width: 100% !important;
+	border-radius: 18px !important;
+}
+
+.bgb-voice-dock [data-voice-call-frame] {
+	box-sizing: border-box !important;
+	width: 100% !important;
+	min-width: 0 !important;
+	padding: 6px 6px 6px 8px !important;
+	gap: 6px !important;
+}
+
+/* Status (avatar + waveform) on the left, shrinking; controls on the right, always whole. */
+.bgb-voice-dock [data-voice-call-chrome] {
+	width: 100% !important;
+	min-width: 0 !important;
+	flex-shrink: 1 !important;
+	gap: 6px !important;
+	justify-content: space-between !important;
+}
+
+.bgb-voice-dock [data-voice-call-activity] {
+	flex: 1 1 auto !important;
+	min-width: 0 !important;
+	padding-inline-start: 0 !important;
+	gap: 6px !important;
+	overflow: hidden !important;
+}
+
+.bgb-voice-dock [data-voice-call-head] {
+	flex-shrink: 0 !important;
+	width: 24px !important;
+	height: 24px !important;
+	overflow: hidden !important;
+	border-radius: 9999px !important;
+	align-items: center !important;
+	justify-content: center !important;
+}
+
+.bgb-voice-dock [data-voice-call-head] > * {
+	width: 24px !important;
+	height: 24px !important;
+	max-width: 24px !important;
+	max-height: 24px !important;
+}
+
+.bgb-voice-dock [data-voice-call-wave] {
+	flex: 1 1 auto !important;
+	width: auto !important;
+	min-width: 0 !important;
+	max-width: 96px !important;
+	height: 20px !important;
+	overflow: hidden !important;
+}
+
+.bgb-voice-dock [data-voice-call-controls] {
+	flex-shrink: 0 !important;
+	gap: 4px !important;
+}
+
+.bgb-voice-dock [data-voice-call-controls] button {
+	flex-shrink: 0 !important;
+	width: 24px !important;
+	height: 24px !important;
+	min-width: 0 !important;
+	padding: 0 !important;
+}
+
+/* Icons and the muted-mic glyph: one size for every button. */
+.bgb-voice-dock [data-voice-call-controls] button > svg,
+.bgb-voice-dock [data-voice-call-controls] button > :first-child {
+	width: 14px !important;
+	height: 14px !important;
+	max-width: 14px !important;
+	max-height: 14px !important;
+}
+
+/* Failure message: wraps within the sidebar. */
+.bgb-voice-dock [data-voice-call-frame] > * {
+	min-width: 0 !important;
+	max-width: 100% !important;
+}
+
+/* The transcript / call settings tray: the sidebar's width, and not the whole sidebar's height. */
+.bgb-voice-dock [data-voice-call-tray-panel] {
+	box-sizing: border-box !important;
+	width: 100% !important;
+	min-width: 0 !important;
+	max-width: 100% !important;
+}
+
+.bgb-voice-dock [data-voice-call-tray-panel] * {
+	min-width: 0 !important;
+	max-width: 100% !important;
+}
+
+.bgb-voice-dock [data-voice-call-tray-panel="open"] {
+	max-height: min(320px, 45vh) !important;
+	overflow: auto !important;
+}

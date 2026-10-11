@@ -1,7 +1,8 @@
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import type { BootPayload } from "../sdk/index.ts";
-import { createFakeSockets, manifestWith, pluginStatus } from "./test/fakes.ts";
+import { SidebarError, type BootPayload, type SidebarCommand, type SidebarResult } from "../sdk/index.ts";
+import { boot } from "./boot.ts";
+import { createFakeSockets, FakeClock, manifestWith, pluginStatus, settle } from "./test/fakes.ts";
 
 beforeAll(() => GlobalRegistrator.register({ url: "file:///data/current/renderer/index.html?bgb" }));
 afterAll(() => GlobalRegistrator.unregister());
@@ -61,6 +62,69 @@ describe("loader bundle", () => {
 			expect(runtime?.call("alpha", "answer")).toBe(42);
 		} finally {
 			globalThis.WebSocket = savedWebSocket;
+			Reflect.deleteProperty(globalThis, "BetterGrokBot");
+			Reflect.deleteProperty(globalThis, "__BGB_BOOT__");
+		}
+	});
+
+	test("boot binds only the loaded sidebar-folders export and preserves asynchronous failures", async () => {
+		const fake = createFakeSockets();
+		const clock = new FakeClock();
+		const savedWebSocket = globalThis.WebSocket;
+		globalThis.WebSocket = fake.WebSocket;
+		globalThis.__BGB_BOOT__ = {
+			manifest: manifestWith([pluginStatus({ id: "alpha" }), pluginStatus({ id: "sidebar-folders" })]),
+			bridge: { port: 39444, token: "boot-token" },
+			styles: [],
+		};
+		let unrelatedCalls = 0;
+		let sidebarCalls = 0;
+		try {
+			const runtime = boot({ clock });
+			if (!runtime) throw new Error("runtime did not boot");
+			const socket = fake.last();
+			socket.accept();
+			expect(socket.sent[0]).toMatchObject({ capabilities: ["sidebar-folders"] });
+			socket.welcome();
+			const script = document.createElement("script");
+			Object.defineProperty(document, "currentScript", { configurable: true, get: () => script });
+			script.dataset.bgbPlugin = "alpha";
+			runtime.define("alpha", () => ({
+				executeSidebar: async () => {
+					unrelatedCalls++;
+					return { operation: "list-folders", folders: [] };
+				},
+			}));
+			socket.receive({ type: "sidebar.req", id: 1, command: { operation: "list-folders" } });
+			await settle(() => socket.sent.some((frame) => frame.type === "sidebar.res" && frame.id === 1));
+			expect(socket.sent.at(-1)).toMatchObject({ id: 1, ok: false, error: { code: "unavailable" } });
+			script.dataset.bgbPlugin = "sidebar-folders";
+			runtime.define("sidebar-folders", () => ({
+				executeSidebar: async (command: SidebarCommand): Promise<SidebarResult> => {
+					sidebarCalls++;
+					await Promise.resolve();
+					if (command.operation === "delete-folder") throw new SidebarError("permission-denied", "Cannot delete Unassigned", { folder: "__agents__" });
+					return { operation: "list-folders", folders: [{ id: "work", name: "Work", botIds: ["bot-1"] }] };
+				},
+			}));
+			Reflect.deleteProperty(document, "currentScript");
+			socket.receive({ type: "sidebar.req", id: 2, command: { operation: "list-folders" } });
+			socket.receive({ type: "sidebar.req", id: 3, command: { operation: "delete-folder", folder: "__agents__" } });
+			await settle(() => socket.sent.filter((frame) => frame.type === "sidebar.res").length === 3);
+			expect(socket.sent.find((frame) => frame.type === "sidebar.res" && frame.id === 2)).toEqual({
+				type: "sidebar.res", id: 2, ok: true,
+				result: { operation: "list-folders", folders: [{ id: "work", name: "Work", botIds: ["bot-1"] }] },
+			});
+			expect(socket.sent.find((frame) => frame.type === "sidebar.res" && frame.id === 3)).toEqual({
+				type: "sidebar.res", id: 3, ok: false,
+				error: { code: "permission-denied", message: "Cannot delete Unassigned", data: { folder: "__agents__" } },
+			});
+			expect(unrelatedCalls).toBe(0);
+			expect(sidebarCalls).toBe(2);
+		} finally {
+			fake.last().drop();
+			globalThis.WebSocket = savedWebSocket;
+			Reflect.deleteProperty(document, "currentScript");
 			Reflect.deleteProperty(globalThis, "BetterGrokBot");
 			Reflect.deleteProperty(globalThis, "__BGB_BOOT__");
 		}

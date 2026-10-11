@@ -38,6 +38,12 @@ pub enum HelperMessage {
 		codes: Vec<&'static str>,
 		media: bool,
 	},
+	/// Key access changed after `hello`: `"denied"` / `"granted"`. Only Windows sends it (its
+	/// keyboard hook failed to install / installed after a failure).
+	#[cfg_attr(not(windows), allow(dead_code))]
+	Access {
+		keys: &'static str,
+	},
 	Key {
 		code: &'static str,
 		down: bool,
@@ -103,6 +109,8 @@ mod tests {
 		);
 		let chord: serde_json::Value = serde_json::from_str(&HelperMessage::Chord { code: "AltRight" }.to_json()).unwrap();
 		assert_eq!(chord, serde_json::json!({"type":"chord","code":"AltRight"}));
+		let access: serde_json::Value = serde_json::from_str(&HelperMessage::Access { keys: "denied" }.to_json()).unwrap();
+		assert_eq!(access, serde_json::json!({"type":"access","keys":"denied"}));
 	}
 
 	#[test]

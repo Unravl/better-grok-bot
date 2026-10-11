@@ -1,0 +1,62 @@
+/* Weekly usage bar above Connect Apps. Track and fill reuse the app's Settings → Usage meter classes
+   (4px, full radius, control-track background); the fill colour is set here so it can change near the limit; this file only lays out the label row. */
+.bgb-weekly-usage {
+	display: flex;
+	flex-direction: column;
+	gap: var(--cursor-spacing-1, 4px);
+	min-width: 0;
+	padding: 0 var(--cursor-spacing-1, 4px);
+	margin-bottom: var(--cursor-spacing-2, 8px);
+	cursor: default;
+	user-select: none;
+}
+
+.bgb-weekly-usage__header {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var(--cursor-spacing-2, 8px);
+	font-size: var(--cursor-font-size-xs, 11px);
+	line-height: var(--cursor-line-height-xs, 16px);
+	color: var(--cursor-text-secondary);
+}
+
+.bgb-weekly-usage__title {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.bgb-weekly-usage__value {
+	flex-shrink: 0;
+	font-variant-numeric: tabular-nums;
+	font-weight: var(--cursor-font-weight-medium, 500);
+	color: var(--cursor-text-primary);
+}
+
+.bgb-weekly-usage__fill {
+	background-color: var(--cursor-bg-blue-primary);
+	transition: width 240ms ease;
+}
+
+.bgb-weekly-usage[data-level="high"] .bgb-weekly-usage__fill {
+	background-color: var(--cursor-bg-orange-primary);
+}
+
+.bgb-weekly-usage[data-level="full"] .bgb-weekly-usage__fill {
+	background-color: var(--cursor-bg-red-primary);
+}
+
+.bgb-weekly-usage[data-level="full"] .bgb-weekly-usage__value {
+	color: var(--cursor-text-red-primary);
+}
+
+.bgb-weekly-usage[data-level="loading"] .bgb-weekly-usage__track {
+	opacity: 0.6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.bgb-weekly-usage__fill {
+		transition: none;
+	}
+}

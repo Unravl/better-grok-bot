@@ -26,6 +26,16 @@ test("rejects an asar that is not Grok Bot", async () => {
 	await expect(readAppPackage(path.join(dir, "missing.asar"))).rejects.toThrow("cannot read package.json");
 });
 
+test("rejects a version that is not a bounded semantic version", async () => {
+	for (const version of ["../../escaped", "1.0.0/../x", "1.0.0\\x", "/abs", "C:1", "1..0", "..", "1.0.0-", "v1.0.0", "", `1.0.0-${"a".repeat(64)}`]) {
+		const asarPath = await makeFixtureAsar(dir, { version, renderer: {} });
+		await expect(readAppPackage(asarPath)).rejects.toThrow(`${asarPath} has an invalid version`);
+	}
+	for (const version of ["1", "0.68.1", "1.2.3.4", "0.69.0-beta.1", "1.0.0+build.7", "1.0.0-rc-1+sha.abc"]) {
+		expect(await readAppPackage(await makeFixtureAsar(dir, { version, renderer: {} }))).toEqual({ version });
+	}
+});
+
 test("reads the new version after the asar is replaced at the same path", async () => {
 	const asarPath = path.join(dir, "app.asar");
 	await makeFixtureAsar(dir, { version: "0.68.1", renderer: { "index.html": "a" }, asarPath });

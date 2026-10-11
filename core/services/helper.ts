@@ -236,31 +236,49 @@ export class HelperController {
 		const download = override ? undefined : await this.download();
 		await mkdir(paths.helpers, { recursive: true });
 		await run(["launchctl", "bootout", `gui/${uid}/${HELPER_LABEL}`]);
-		await rm(app, { recursive: true, force: true });
-		if (override && !override.endsWith(".zip")) {
-			await mustRun(run, ["ditto", override, app]);
-		} else {
-			let zip = override ?? "";
-			if (download) {
-				await mkdir(paths.cache, { recursive: true });
-				zip = path.join(paths.cache, `helper-${randomBytes(6).toString("hex")}.zip`);
-				await writeFile(zip, download.bytes);
+		try {
+			await rm(app, { recursive: true, force: true });
+			if (override && !override.endsWith(".zip")) {
+				await mustRun(run, ["ditto", override, app]);
+			} else {
+				let zip = override ?? "";
+				if (download) {
+					await mkdir(paths.cache, { recursive: true });
+					zip = path.join(paths.cache, `helper-${randomBytes(6).toString("hex")}.zip`);
+					await writeFile(zip, download.bytes);
+				}
+				try {
+					await mustRun(run, ["ditto", "-x", "-k", zip, paths.helpers]);
+				} finally {
+					if (download) await rm(zip, { force: true });
+				}
 			}
-			try {
-				await mustRun(run, ["ditto", "-x", "-k", zip, paths.helpers]);
-			} finally {
-				if (download) await rm(zip, { force: true });
-			}
+			if (!existsSync(this.macExecutable)) throw new Error(`${app} has no Contents/MacOS/${HELPER_EXECUTABLE}`);
+			await writeFile(this.versionFile, override ? "dev\n" : `${manifest.version}\n`);
+			await mkdir(this.opts.launchAgentsDir, { recursive: true });
+			await writeFile(
+				this.plistPath,
+				helperPlist({ executable: this.macExecutable, dataDir: paths.root, logFile: path.join(paths.logs, "helper.log") }),
+			);
+			await mustRun(run, ["launchctl", "bootstrap", `gui/${uid}`, this.plistPath]);
+		} catch (error) {
+			await this.removeMacInstall(app);
+			throw error;
 		}
-		if (!existsSync(this.macExecutable)) throw new Error(`${app} has no Contents/MacOS/${HELPER_EXECUTABLE}`);
-		await writeFile(this.versionFile, override ? "dev\n" : `${manifest.version}\n`);
-		await mkdir(this.opts.launchAgentsDir, { recursive: true });
-		await writeFile(
-			this.plistPath,
-			helperPlist({ executable: this.macExecutable, dataDir: paths.root, logFile: path.join(paths.logs, "helper.log") }),
-		);
-		await mustRun(run, ["launchctl", "bootstrap", `gui/${uid}`, this.plistPath]);
 		this.opts.log.info(override ? `installed helper from ${override}` : `installed helper ${manifest.tag}`);
+	}
+
+	/**
+	 * macOS: removes a partial install (the old helper is already booted out), so it is neither reported
+	 * installed nor loaded by launchd at the next login. The version marker goes first: should a later
+	 * removal fail, the leftover app/plist still counts as another version and is reinstalled.
+	 */
+	private async removeMacInstall(app: string): Promise<void> {
+		for (const file of [this.versionFile, this.plistPath, app]) {
+			await rm(file, { recursive: true, force: true }).catch((error: unknown) => {
+				this.opts.log.warn(`cannot remove ${file} after a failed helper install: ${errorMessage(error)}`);
+			});
+		}
 	}
 
 	/** Windows/Linux: the helper binary, downloaded when missing or from another manifest version. */

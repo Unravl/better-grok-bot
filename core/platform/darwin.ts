@@ -3,6 +3,7 @@ import { homedir, userInfo } from "node:os";
 import * as path from "node:path";
 import { RENDERER_URL_ENV } from "../../sdk/index.ts";
 import { readAppPackage } from "../app/package.ts";
+import { errorMessage } from "../errors.ts";
 import type { DataPaths } from "../paths.ts";
 import { stopAgentProcess } from "./agent-control.ts";
 import {
@@ -112,6 +113,8 @@ export interface DarwinDeps {
 	env?: Record<string, string | undefined>;
 	home?: string;
 	uid?: number;
+	/** Bundles checked before Spotlight (default `/Applications` and `~/Applications` `Grok Bot.app`). */
+	appLocations?: string[];
 	/** Wait after the AppleScript quit (default 15 s) and after `kill -9` (5 s). */
 	quitWaitMs?: number;
 	killWaitMs?: number;
@@ -166,13 +169,22 @@ export function createDarwinAdapter(deps: DarwinDeps = {}): PlatformAdapter {
 				if (!(await isDirectory(resolved))) throw new Error(`${explicit}: no such app bundle`);
 				return readApp(await realpath(resolved));
 			}
-			for (const candidate of [path.join("/Applications", "Grok Bot.app"), path.join(home, "Applications", "Grok Bot.app")]) {
+			const standard = deps.appLocations ?? [path.join("/Applications", "Grok Bot.app"), path.join(home, "Applications", "Grok Bot.app")];
+			for (const candidate of standard) {
 				if (await isDirectory(candidate)) return readApp(await realpath(candidate));
 			}
 			const found = await run(["mdfind", `kMDItemCFBundleIdentifier == '${APP_BUNDLE_ID}'`]);
-			const first = found.stdout.split("\n").find((line) => line.endsWith(".app"));
-			if (first !== undefined) return readApp(await realpath(first));
-			throw new Error("Grok Bot not found in /Applications, ~/Applications or Spotlight");
+			const candidates = found.stdout.split("\n").filter((line) => line.endsWith(".app"));
+			const failures: string[] = [];
+			for (const candidate of candidates) {
+				try {
+					return await readApp(await realpath(candidate));
+				} catch (error) {
+					failures.push(errorMessage(error));
+				}
+			}
+			const detail = failures.length > 0 ? `; Spotlight results were unusable: ${failures.join("; ")}` : "";
+			throw new Error(`Grok Bot not found in /Applications, ~/Applications or Spotlight${detail}`);
 		},
 
 		async findRunningApp(app) {

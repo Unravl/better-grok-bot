@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
-import { mkdtemp, readFile, rm, stat, utimes, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { BgbError } from "./errors.ts";
 import { claimRecordFile, releaseRecordFile, withBinariesLock, withLock } from "./lock.ts";
+import { withOsLock } from "./os-lock.ts";
 import { type DataPaths, dataPaths, ensureDataDir } from "./paths.ts";
 import { bootId, selfIdentity } from "./proc.ts";
 
@@ -103,28 +104,44 @@ test("two reclaimers of one stale record never displace the live holder the firs
 	await releaseRecordFile(lockFile, recordOf("a"));
 	const next = await Promise.all([claimRecordFile(lockFile, recordOf("c")), claimRecordFile(lockFile, recordOf("d"))]);
 	expect(next.filter((result) => result.claimed)).toHaveLength(1);
-	expect(existsSync(`${lockFile}.reclaim`)).toBe(false);
+	expect((await readdir(paths.locks)).sort()).toEqual(["state.lock", "state.lock.guard"]);
 });
 
-test("a reclaim mutex left by a dead reclaimer is reclaimed; a live one is waited for", async () => {
+test("a guard whose holder died is free; a live holder's guard is waited for", async () => {
+	const guard = `${lockFile}.guard`;
+	const script = path.join(paths.root, "dies-holding-guard.ts");
+	await writeFile(
+		script,
+		`import { withOsLock } from ${JSON.stringify(path.join(import.meta.dir, "os-lock.ts"))};
+await withOsLock(process.argv[2] as string, async () => process.exit(7));
+`,
+	);
+	expect(await Bun.spawn([process.execPath, script, guard], { stdout: "ignore", stderr: "inherit" }).exited).toBe(7);
 	await writeFile(lockFile, await deadRecord());
-	await writeFile(`${lockFile}.reclaim`, await deadRecord());
 	expect(await withLock(paths, "state", () => "taken", 2_000)).toBe("taken");
-	expect(existsSync(`${lockFile}.reclaim`)).toBe(false);
 
 	const dead = await deadRecord();
 	await writeFile(lockFile, dead);
-	await writeFile(`${lockFile}.reclaim`, JSON.stringify({ ...(await selfIdentity()), at: "reclaiming" }));
-	const judged = Promise.withResolvers<void>();
+	const guardHeld = Promise.withResolvers<void>();
+	const releaseGuard = Promise.withResolvers<void>();
+	let holding: Promise<void> | undefined;
 	const claim = claimRecordFile(lockFile, JSON.stringify({ ...(await selfIdentity()), at: "waiter" }), {
-		judgedStale: async () => judged.resolve(),
+		// Another reclaimer takes the guard between this claimer's judgement and its reclamation.
+		judgedStale: async () => {
+			holding = withOsLock(guard, async () => {
+				guardHeld.resolve();
+				await releaseGuard.promise;
+			});
+			await guardHeld.promise;
+		},
 	});
-	await judged.promise;
-	// The stale record is only ever removed under the mutex, so it stays while the live reclaimer holds it.
+	await guardHeld.promise;
+	// The stale record is only ever removed under the guard, so it stays while the live holder has it.
 	expect(await readFile(lockFile, "utf8")).toBe(dead);
-	await rm(`${lockFile}.reclaim`);
+	releaseGuard.resolve();
+	await holding;
 	expect(await claim).toEqual({ claimed: true });
-});
+}, 20_000);
 
 test("an unparsable lock is stale only after 5 s", async () => {
 	await writeFile(lockFile, "");
@@ -179,3 +196,30 @@ test("withBinariesLock is re-entrant in its own call chain and refuses a concurr
 	expect(await first).toBe("nested");
 	expect(await withBinariesLock(paths, async () => "free again")).toBe("free again");
 });
+
+test("processes racing to reclaim stale records never hold the lock together", async () => {
+	await writeFile(lockFile, await deadRecord());
+	const marker = path.join(paths.root, "inside");
+	const violations = path.join(paths.root, "violations");
+	const script = path.join(paths.root, "claimant.ts");
+	// Each claimant holds once and exits without releasing, so every later claim reclaims a stale record.
+	// The claimants are separate processes, so the hold is a real delay that widens any overlap window.
+	await writeFile(
+		script,
+		`import { appendFile, rm, writeFile } from "node:fs/promises";
+import { claimRecordFile } from ${JSON.stringify(path.join(import.meta.dir, "lock.ts"))};
+import { selfIdentity } from ${JSON.stringify(path.join(import.meta.dir, "proc.ts"))};
+const [file, marker, violations] = process.argv.slice(2) as [string, string, string];
+const text = JSON.stringify({ ...(await selfIdentity()), at: new Date().toISOString() });
+while (!(await claimRecordFile(file, text)).claimed) await Bun.sleep(5);
+await writeFile(marker, "", { flag: "wx" }).catch(() => appendFile(violations, \`\${process.pid}\\n\`));
+await Bun.sleep(20);
+await rm(marker, { force: true });
+`,
+	);
+	const claimants = Array.from({ length: 8 }, () =>
+		Bun.spawn([process.execPath, script, lockFile, marker, violations], { stdout: "ignore", stderr: "inherit" }),
+	);
+	expect(await Promise.all(claimants.map((claimant) => claimant.exited))).toEqual(Array(8).fill(0));
+	expect(existsSync(violations)).toBe(false);
+}, 60_000);

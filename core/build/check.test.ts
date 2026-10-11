@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
+import { CORE_HOOKS } from "../hooks/index.ts";
 import { BUNDLED_PLUGINS } from "../plugins/bundled.ts";
 import { compareNames } from "../plugins/package.ts";
 import { fakePlatform } from "../test/build-context.ts";
@@ -38,13 +39,11 @@ test("reports every core and bundled patch against a fixture app and leaves no t
 	expect(report).toMatchObject({ asar: asarPath, appVersion: "0.68.1", supported: true, ok: false });
 	// The synthetic renderer has none of the app's anchors, so every plugin with patches fails.
 	expect(report.plugins.map((plugin) => [plugin.id, plugin.source, plugin.state])).toEqual([
-		["bgb-react", "core", "patch-failed"],
-		["bgb-settings", "core", "patch-failed"],
-		["bgb-client", "core", "patch-failed"],
+		...CORE_HOOKS.map((def) => [def.id, "core", (def.patches ?? []).length > 0 ? "patch-failed" : "active"]),
 		...BUNDLED.map((def) => [def.id, "bundled", (def.patches ?? []).length > 0 ? "patch-failed" : "active"]),
 	]);
 	expect(report.plugins[0]?.patches).toEqual([{ id: "react-namespace", matches: 0, expected: 1, ok: false }]);
-	for (const plugin of report.plugins.slice(3)) {
+	for (const plugin of report.plugins.slice(CORE_HOOKS.length)) {
 		const def = BUNDLED.find((candidate) => candidate.id === plugin.id);
 		expect(plugin.patches.map((patch) => patch.id)).toEqual((def?.patches ?? []).map((patch) => patch.id));
 	}
@@ -64,12 +63,14 @@ test("an app without VITE_DEV_SERVER_URL is unsupported", async () => {
 test.skipIf(!existsSync(REAL_ASAR))("the installed Grok Bot passes every core hook and bundled plugin", async () => {
 	const report = await checkAsar(REAL_ASAR, { platform: fakePlatform() });
 	expect(report.supported).toBe(true);
-	expect(report.plugins.map((plugin) => [plugin.id, plugin.source, plugin.state, plugin.errors])).toEqual([
-		["bgb-react", "core", "active", []],
-		["bgb-settings", "core", "active", []],
-		["bgb-client", "core", "active", []],
-		...BUNDLED.map((def) => [def.id, "bundled", "active", []]),
+	expect(report.plugins.map((plugin) => ({ id: plugin.id, source: plugin.source }))).toEqual([
+		...CORE_HOOKS.map((definition) => ({ id: definition.id, source: "core" as const })),
+		...BUNDLED.map((definition) => ({ id: definition.id, source: "bundled" as const })),
 	]);
-	for (const plugin of report.plugins) expect(plugin.patches.every((patch) => patch.ok && patch.matches === patch.expected)).toBe(true);
+	for (const plugin of report.plugins) {
+		expect(plugin.state).toBe("active");
+		expect(plugin.errors).toEqual([]);
+		expect(plugin.patches.every((patch) => patch.ok && patch.matches === patch.expected)).toBe(true);
+	}
 	expect(report.ok).toBe(true);
 }, 60_000);

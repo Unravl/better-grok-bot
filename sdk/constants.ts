@@ -18,10 +18,10 @@ export const PLUGIN_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 export const VERSION_PATTERN = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 
 export type Platform = "darwin" | "win32" | "linux";
-export type Permission = "keys" | "media";
+export type Permission = "keys" | "media" | "mcp";
 
 export const PLATFORMS: readonly Platform[] = ["darwin", "win32", "linux"];
-export const PERMISSIONS: readonly Permission[] = ["keys", "media"];
+export const PERMISSIONS: readonly Permission[] = ["keys", "media", "mcp"];
 
 /** `bgb` and every `bgb-*` id are reserved for core hooks. */
 export function isReservedPluginId(id: string): boolean {

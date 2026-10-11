@@ -2,7 +2,7 @@ import { type Mock, afterEach, beforeEach, expect, spyOn, test } from "bun:test"
 import { existsSync } from "node:fs";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import * as path from "node:path";
-import type { PluginPackageJson } from "../../sdk/index.ts";
+import type { Permission, PluginPackageJson } from "../../sdk/index.ts";
 import { mutateConfig, readConfig } from "../config.ts";
 import { BgbError } from "../errors.ts";
 import { readJsonFile, writeJsonAtomic } from "../json-file.ts";
@@ -227,4 +227,74 @@ test("uninstallPlugin removes a community plugin with its grant and disabled fla
 	expect(await codeOf(uninstallPlugin(t.ctx, "demo"))).toBe("not-found");
 	expect(await codeOf(uninstallPlugin(t.ctx, "bgb-settings"))).toBe("bad-request");
 	expect(await codeOf(updatePlugin(t.ctx, "bgb-client"))).toBe("bad-request");
+});
+
+test("concurrent installs of one id leave exactly the grant of the package that ends up installed", async () => {
+	const variants: Permission[][] = [["keys"], ["media"], ["keys", "media"], [], ["media"], ["keys"]];
+	const ids: string[] = [];
+	for (const [i, permissions] of variants.entries()) {
+		ids.push((await inspectSource(t.ctx, await packageDir(`v${i}`, packageJson({ version: `1.0.${i}`, permissions })))).inspectionId);
+	}
+	await Promise.all(ids.map((id, i) => installInspected(t.ctx, id, { acceptPermissions: variants[i] ?? [] })));
+	const installed = JSON.parse(await readFile(path.join(t.ctx.paths.plugins, "demo", "plugin.json"), "utf8")) as PluginPackageJson;
+	expect((await readConfig(t.ctx.paths)).grants.demo).toEqual(installed.permissions);
+	expect((await readdir(t.ctx.paths.plugins)).filter((name) => name.startsWith("."))).toEqual([]);
+});
+
+test("an update never brings back a plugin that was uninstalled while it was fetching", async () => {
+	serve({ "https://example.com/demo.bgbplugin": () => zipOf(packageJson()) });
+	await installPlugin(t.ctx, "https://example.com/demo.bgbplugin", { acceptPermissions: [] });
+	serve({});
+	fetchSpy?.mockImplementation((async (_input: string | URL | Request) => {
+		await uninstallPlugin(t.ctx, "demo");
+		return new Response(new Uint8Array(zipOf(packageJson({ version: "1.1.0" }))), { status: 200 });
+	}) as typeof fetch);
+	expect(await codeOf(updatePlugin(t.ctx, "demo"))).toBe("not-found");
+	expect(existsSync(path.join(t.ctx.paths.plugins, "demo"))).toBe(false);
+	expect((await readConfig(t.ctx.paths)).grants).toEqual({});
+	expect(await readdir(path.join(t.ctx.paths.cache, "inspect"))).toEqual([]);
+});
+
+test("an update never overwrites a package reinstalled from another source while it was fetching", async () => {
+	serve({ "https://example.com/demo.bgbplugin": () => zipOf(packageJson()) });
+	await installPlugin(t.ctx, "https://example.com/demo.bgbplugin", { acceptPermissions: [] });
+	const other = await packageDir("other", packageJson({ version: "9.0.0", permissions: ["media"] }));
+	serve({});
+	fetchSpy?.mockImplementation((async (_input: string | URL | Request) => {
+		await installPlugin(t.ctx, other, { acceptPermissions: ["media"] });
+		return new Response(new Uint8Array(zipOf(packageJson({ version: "1.1.0" }))), { status: 200 });
+	}) as typeof fetch);
+	expect(await codeOf(updatePlugin(t.ctx, "demo"))).toBe("conflict");
+	expect(JSON.parse(await readFile(path.join(t.ctx.paths.plugins, "demo", "plugin.json"), "utf8")).version).toBe("9.0.0");
+	expect((await readConfig(t.ctx.paths)).grants.demo).toEqual(["media"]);
+	expect(await readdir(path.join(t.ctx.paths.cache, "inspect"))).toEqual([]);
+});
+
+test("approving an update's new permissions fails once the plugin was uninstalled or replaced after the prompt", async () => {
+	serve({
+		"https://example.com/demo.bgbplugin": () => zipOf(packageJson()),
+		"https://example.com/demo-2.bgbplugin": () => zipOf(packageJson({ version: "2.0.0", permissions: ["media"] })),
+	});
+	const pending = async (): Promise<string> => {
+		await installPlugin(t.ctx, "https://example.com/demo.bgbplugin", { acceptPermissions: [] });
+		const record = (await readJsonFile(path.join(t.ctx.paths.plugins, "demo", ".bgb-source.json"))) as Record<string, unknown>;
+		await writeJsonAtomic(path.join(t.ctx.paths.plugins, "demo", ".bgb-source.json"), { ...record, source: "https://example.com/demo-2.bgbplugin" });
+		const result = await updatePlugin(t.ctx, "demo");
+		if (result.state !== "needs-consent") throw new Error(`expected needs-consent, got ${result.state}`);
+		return result.inspectionId;
+	};
+
+	const afterUninstall = await pending();
+	await uninstallPlugin(t.ctx, "demo");
+	expect(await codeOf(installInspected(t.ctx, afterUninstall, { acceptPermissions: ["media"] }))).toBe("not-found");
+	expect(existsSync(path.join(t.ctx.paths.plugins, "demo"))).toBe(false);
+	expect((await readConfig(t.ctx.paths)).grants).toEqual({});
+	expect(await readdir(path.join(t.ctx.paths.cache, "inspect"))).toEqual([]);
+
+	const afterReinstall = await pending();
+	await installPlugin(t.ctx, await packageDir("other", packageJson({ version: "9.0.0", permissions: ["keys"] })), { acceptPermissions: ["keys"] });
+	expect(await codeOf(installInspected(t.ctx, afterReinstall, { acceptPermissions: ["media"] }))).toBe("conflict");
+	expect(JSON.parse(await readFile(path.join(t.ctx.paths.plugins, "demo", "plugin.json"), "utf8")).version).toBe("9.0.0");
+	expect((await readConfig(t.ctx.paths)).grants.demo).toEqual(["keys"]);
+	expect(await readdir(path.join(t.ctx.paths.cache, "inspect"))).toEqual([]);
 });

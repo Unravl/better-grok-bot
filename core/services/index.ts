@@ -137,15 +137,17 @@ export class Services {
 		return { keys: this.last.keys, media: this.last.media };
 	}
 
-	/** `keys.watch`: replaces this connection's watched set. */
+	/** `keys.watch`: replaces this connection's watched set; codes already held down are replayed to it. */
 	watchKeys(connectionId: number, rawCodes: unknown): { unsupported: string[] } {
 		const codes = parseWatchCodes(rawCodes);
 		const available = this.availableCodes();
 		const unsupported = codes.filter((code) => !available.has(code));
-		if (this.keys.set(connectionId, codes.filter((code) => available.has(code)))) {
+		const { unionChanged, held } = this.keys.set(connectionId, codes.filter((code) => available.has(code)));
+		if (unionChanged) {
 			this.sendWatch();
 			this.updateWanted();
 		}
+		for (const code of held) this.opts.host.sendEvent(connectionId, "keys.key", { code, down: true });
 		this.recompute();
 		return { unsupported };
 	}
@@ -224,7 +226,8 @@ export class Services {
 					codes:
 						message.keys === "granted" && this.hello.codes.length === 0 ? [...HELPER_CODES[this.platform]] : this.hello.codes,
 				};
-				this.sendWatch();
+				// Only a grant changes what the helper can watch; resending on "denied" could loop with a helper that retries.
+				if (message.keys === "granted") this.sendWatch();
 				break;
 			case "key":
 				if (!this.hello) return;
@@ -310,13 +313,13 @@ export class Services {
 			failures: this.controller.failures,
 			maxFailures: this.controller.maxFailures,
 			lastFailure: this.controller.lastFailure,
-			installed: this.installed,
 		};
 		return {
 			keys: computeKeysState({
 				...common,
 				unsupportedReason: this.keysUnsupported,
 				installing: this.installing,
+				installed: this.installed,
 				installError: this.installError,
 				access: this.hello?.keys ?? null,
 				helperLost: this.helperLost,
@@ -325,6 +328,8 @@ export class Services {
 			media: computeMediaState({
 				...common,
 				unsupportedReason: this.helperUnavailable,
+				// A failed install leaves media uninstalled, whatever files remain, until a helper connects.
+				installed: this.hello !== null || (this.installed && this.installError === null),
 				helperMedia: this.hello?.media ?? null,
 				linux: this.linuxState,
 			}),

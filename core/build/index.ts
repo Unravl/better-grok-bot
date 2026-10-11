@@ -58,7 +58,9 @@ export function buildDirName(appVersion: string, key: string): string {
 
 /** The manifest of the build with this key and app version, or `null` when there is none. */
 export async function readBuildManifest(ctx: CoreContext, key: string, appVersion: string): Promise<BuildManifest | null> {
-	const value = await readJsonFile(path.join(ctx.paths.builds, buildDirName(appVersion, key), "manifest.json")).catch(() => undefined);
+	const dir = path.join(ctx.paths.builds, buildDirName(appVersion, key));
+	if (path.dirname(dir) !== ctx.paths.builds) return null;
+	const value = await readJsonFile(path.join(dir, "manifest.json")).catch(() => undefined);
 	return value === undefined ? null : (value as BuildManifest);
 }
 
@@ -211,7 +213,7 @@ async function buildOnce(ctx: CoreContext, options: RunBuildOptions): Promise<Bu
 	const appFingerprint = await fingerprint(ctx, app.asarPath);
 	const { plugins, warnings } = await discoverPlugins(ctx, config, ctx.platform.id);
 	const themes = await loadThemes(ctx, config);
-	const key = await computeBuildKey({
+	const key = computeBuildKey({
 		bgbVersion: BGB_VERSION,
 		embedHash: EMBED_HASH,
 		platform: ctx.platform.id,
@@ -223,6 +225,8 @@ async function buildOnce(ctx: CoreContext, options: RunBuildOptions): Promise<Bu
 		themes: themes.map((theme) => ({ id: theme.info.id, enabled: theme.info.enabled, bytes: theme.bytes })),
 	});
 	const dir = path.join(ctx.paths.builds, buildDirName(app.version, key));
+	// readAppPackage only admits plain versions; never write a build anywhere but directly under DATA/builds.
+	if (path.dirname(dir) !== ctx.paths.builds) throw new Error(`build directory ${dir} is not inside ${ctx.paths.builds}`);
 	const manifestFile = path.join(dir, "manifest.json");
 	await mkdir(ctx.paths.builds, { recursive: true });
 

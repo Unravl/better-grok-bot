@@ -8,7 +8,9 @@ import { type AppInstall, HookConflictError } from "./types.ts";
 import {
 	createWin32Adapter,
 	displayIconDir,
+	type JunctionOps,
 	parseWin32Processes,
+	pointCurrentJunction,
 	psQuote,
 	rootsFromUninstallEntries,
 	runValueCommand,
@@ -205,4 +207,55 @@ test.skipIf(process.platform !== "win32")("pointCurrent repoints the junction an
 	expect(path.resolve(await readlink(paths.current))).toBe(path.resolve(b));
 	expect(await readFile(path.join(a, "renderer", "index.html"), "utf8")).toBe("a");
 	expect(rendererUrl(paths)).toContain("/current/renderer/index.html?bgb");
+});
+
+/** Junctions as a map; like Windows, rename refuses an existing destination. */
+function fakeJunctions(initial: Record<string, string>, failRenameTo?: string): JunctionOps & { links: Map<string, string> } {
+	const links = new Map(Object.entries(initial));
+	const enoent = (p: string) => Object.assign(new Error(`ENOENT ${p}`), { code: "ENOENT" });
+	return {
+		links,
+		async symlink(target, link) {
+			if (links.has(link)) throw Object.assign(new Error("EEXIST"), { code: "EEXIST" });
+			links.set(link, target);
+		},
+		async rename(from, to) {
+			const target = links.get(from);
+			if (target === undefined) throw enoent(from);
+			if (to === failRenameTo && from !== `${to}.old`) throw Object.assign(new Error("EPERM"), { code: "EPERM" });
+			if (links.has(to)) throw Object.assign(new Error("EPERM"), { code: "EPERM" });
+			links.delete(from);
+			links.set(to, target);
+		},
+		async unlink(link) {
+			if (!links.delete(link)) throw enoent(link);
+		},
+		async isDirectory(link) {
+			if (!links.has(link)) throw enoent(link);
+			return true;
+		},
+	};
+}
+
+describe("pointCurrentJunction", () => {
+	test("swaps the junction and clears leftovers of a crashed attempt", async () => {
+		const ops = fakeJunctions({ C: "old", "C.new": "stale", "C.old": "older" });
+		await pointCurrentJunction("C", "new", ops);
+		expect([...ops.links]).toEqual([["C", "new"]]);
+	});
+
+	test("a failed final rename restores the old junction", async () => {
+		const ops = fakeJunctions({ C: "old" }, "C");
+		await expect(pointCurrentJunction("C", "new", ops)).rejects.toThrow("EPERM");
+		expect([...ops.links]).toEqual([["C", "old"]]);
+	});
+
+	test("a failed junction creation leaves the old one in place", async () => {
+		const ops = fakeJunctions({ C: "old" });
+		ops.symlink = async () => {
+			throw new Error("denied");
+		};
+		await expect(pointCurrentJunction("C", "new", ops)).rejects.toThrow("denied");
+		expect(ops.links.get("C")).toBe("old");
+	});
 });

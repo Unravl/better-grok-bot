@@ -6,15 +6,15 @@ A Better Grok Bot plugin changes Grok Bot's web UI (its renderer). It can:
 - run **renderer JavaScript** (`runtime`) that the patched code calls into,
 - add **CSS** (`styles`),
 - declare **settings** that Better Grok Bot stores and shows in Settings → General → Better Grok Bot,
-- use Better Grok Bot **services** (`keys`, `media`) for the few things a web page can't do, after the user grants them.
+- use Better Grok Bot **services** (`keys`, `media`, `mcp`) for host capabilities, after the user grants them.
 
 Better Grok Bot never modifies the installed app. Each build copies the app's renderer into the Better Grok
 Bot data folder, applies the patches of every enabled plugin, injects the loader and plugin scripts, and makes
 Grok Bot load that private copy at its next start. When Grok Bot updates, Better Grok Bot rebuilds; a plugin
 whose patches no longer match is turned off for that app version (`patch-failed`) and the rest keep working.
 
-The four bundled plugins in [`plugins/`](../plugins) (`output-device`, `push-to-talk`, `startup`,
-`voice-keepalive`) are complete, working examples of everything below.
+The bundled plugins in [`plugins/`](../plugins) (`bot-instructions`, `chat-search`, `output-device`, `push-to-talk`, `sidebar-folders`,
+`startup`, `voice-dock`, `voice-keepalive`, `voice-mcp`, `weekly-usage`) are examples of the patterns below.
 
 ## Anatomy
 
@@ -66,7 +66,7 @@ export default definePlugin({
 |`apiVersion`|yes|Always `1`.|
 |`authors`, `license`, `homepage`|no|Metadata.|
 |`platforms`|no|Operating systems the plugin supports (`darwin`, `win32`, `linux`); default all. Elsewhere it shows as "Not available on this OS".|
-|`permissions`|no|Services the plugin uses: `keys`, `media` (see Permissions and services).|
+|`permissions`|no|Services the plugin uses: `keys`, `media`, `mcp` (see Permissions and services).|
 |`settings`|no|Settings schema (see Settings).|
 |`patches`|no|Renderer patches (see Patches).|
 |`runtime`|no|Path of the renderer entry, relative to the plugin folder.|
@@ -189,22 +189,24 @@ from `@better-grok-bot/sdk` (for example `WATCHABLE_CODES`) are bundled into you
 |---|---|
 |`ctx.id`|Your plugin id.|
 |`ctx.log`|`info`/`warn`/`error`, printed to the renderer console prefixed `[bgb:<id>]`.|
-|`ctx.storage`|`get(key, fallback)`, `set(key, value)`, `subscribe(key, listener)`: JSON values in `localStorage` under `bgb:<id>:<key>`. `subscribe` fires after `set` in this window and when another window changes the key.|
+|`ctx.storage`|`get(key, fallback)`, `set(key, value, options?)`, `subscribe(key, listener)`: JSON values in `localStorage` under `bgb:<id>:<key>`. `subscribe` fires after `set` in this window and when another window changes the key. `set` with `{ requirePersistence: true }` rejects known persistence errors without optimistically updating the cache; the default behavior is unchanged.|
 |`ctx.settings`|Your settings schema's values (see Settings).|
 |`ctx.manifest`|The build manifest: `platform`, `appVersion`, `buildKey`, `bgbVersion` and every plugin's status.|
 |`ctx.app.React`, `ctx.app.jsx`|The app's React namespace and `jsx` function (from the `bgb-react` core hook).|
 |`ctx.app.ui`|The settings page's `Section`, `Row`, `Toggle`, `Select`, `Button` components and `textStyles` (from the `bgb-settings` core hook), once Settings has opened.|
 |`ctx.app.client`, `ctx.app.onClient(listener)`|The app's client (roster, auth, voice call, window events; from the `bgb-client` core hook). `onClient` calls `listener` in a microtask with the current client, then with every new client (the app can replace it), and returns an unsubscribe function.|
-|`ctx.services`|`keys` and `media` (see Permissions and services).|
+|`ctx.services`|`keys`, `media` and required `mcp` (see Permissions and services).|
 
 The runtime global `BetterGrokBot` also offers `BetterGrokBot.React` (the app's React), `status()` (every
 plugin's state with errors, including runtime failures in this window), `bridgeState()` and `version`.
 
 ### Core hooks
 
-Three core hooks (`bgb-react`, `bgb-settings`, `bgb-client`) are always active and patch the app first.
-They hand the app's React, its settings primitives and its client to the loader, so your plugin can use
-them without patching for them. They never change what the app does.
+Four core hooks (`bgb-react`, `bgb-settings`, `bgb-client`, `bgb-brand`) are always active and patch the
+app first. The first three hand the app's React, its settings primitives and its client to the loader, so
+your plugin can use them without patching for them; they never change what the app does. `bgb-brand` is
+the one core hook that changes what the app shows: it calls the app Better Grok Bot (the window title, the
+messages where the app names itself, and a label at the top of the agents sidebar).
 
 ## Settings
 
@@ -240,16 +242,16 @@ Every field has a `label`, an optional `description` and a `default` that must i
 
 ## Permissions and services
 
-A web page can't see keys pressed while the app is in the background or change other apps' volume. Better
-Grok Bot does both through its background agent and a small native helper, as services. A plugin declares
-the services it uses in `permissions`; the user grants them when installing the plugin (and again when an
-update asks for more). Reading `ctx.services.keys` or `ctx.services.media` without the grant throws a
-`PermissionError`.
+Better Grok Bot provides background keys and music ducking through its agent and native helper, and MCP
+connections through the agent. A plugin declares the services it uses in `permissions`; the user grants
+them when installing the plugin (and again when an update asks for more). Reading `ctx.services.keys`,
+`ctx.services.media` or `ctx.services.mcp` without the grant throws a `PermissionError`.
 
 |Permission|Shown to the user as|
 |---|---|
 |`keys`|listen to a key while Grok Bot is in the background|
 |`media`|lower other apps' volume|
+|`mcp`|manage MCP servers and use their tools, including configured local commands|
 
 ### `ctx.services.keys`
 
@@ -288,18 +290,61 @@ PulseAudio/PipeWire (`pactl` 16 or newer). It restores the original volume with 
 managing a player once the user changes its volume by hand. `state` is `unsupported`, `needs-install`,
 `ready` or `error`.
 
+### `ctx.services.mcp`
+
+Declare `permissions: ["mcp"]` to use this required service. Its browser-safe types are defined in
+[`sdk/mcp.ts`](../sdk/mcp.ts); plugins need no Node.js MCP client.
+
+|Method|Behavior|
+|---|---|
+|`list()`|Return server statuses, including full configuration, connection state, optional error detail and tool count.|
+|`save(server)`|Persist a full `McpServerConfig`; save new servers with `enabled: false` until the user explicitly enables them.|
+|`remove(id)`|Remove a saved server.|
+|`connect(id)`|Connect and discover tools, including for a disabled server, for connection testing; does not execute tools.|
+|`tools()`|Discover tools from enabled servers only, with server ID, name, optional description and input schema.|
+|`call(serverId, name, args)`|Call a tool on an enabled server only, using an argument object.|
+
+Configurations have `id`, `name`, `enabled` and either `transport: "stdio"` with `command`, string-array
+`args`, string-object `env` and optional `cwd`, or `transport: "http" | "sse"` with `url` and string-object
+`headers`. HTTP means Streamable HTTP; SSE is the legacy transport. Explicit authentication headers are
+supported; OAuth is not. Stdio requires an installed local runtime; use an absolute command path when the
+agent's PATH cannot resolve it.
+
+Operations have deadlines and reject on connection, bridge or protocol failures rather than pretending
+an empty result succeeded. Tool results preserve `content`, optional `structuredContent` and `isError`;
+handle a server's `isError` result separately from a rejected operation.
+
+Full configurations (including secrets) are shared host-wide in `DATA/mcp.json`, mode `0600`, not encrypted.
+Connecting may launch a host command or contact a remote server even while disabled. Enabling trusts tools
+to act with the user's authority without per-call prompts.
+
+The bundled Voice MCP plugin exposes these settings at **Settings → General → System → Voice MCP servers**:
+add a named server, enter JSON args/env (stdio) or JSON headers (HTTP/SSE), save disabled, test, then explicitly
+enable and manually rejoin/start voice. It changes voice only, not normal text chat. Tool schemas and results
+go to the voice model, and voice remains remotely processed.
+
+#### Built-in sidebar server and contract
+
+The [BGB Sidebar Folders workflow and tool reference](../README.md#built-in-bgb-sidebar-folders) cover the five built-in tools. Setup adds the preset disabled only when its ID is absent, preserving existing enabled choices and user ID collisions. Users enable the preset and both Sidebar Folders and Voice MCP plugins, manually open the updated app, then start a new voice conversation; the preset needs no command arguments, configuration or external runtime in compiled BGB.
+
+For external MCP clients, run `bgb [--data-dir <DATA>] mcp sidebar-folders` over stdio; `--data-dir` is a global flag before `mcp`. Neither app nor agent is automatically launched. Actions require a running app and agent, an updated sidebar runtime, fresh roster and confirmed storage readiness. Voice requests are routed to the originating renderer window. Without context, an external client requires exactly one capable window; multiple capable windows produce a conflict rather than an arbitrary selection.
+
+[`sdk/sidebar.ts`](../sdk/sidebar.ts) defines the browser-safe `SidebarCommand`, `SidebarResult` and structured `SidebarError` contract. Use `isSidebarError` rather than constructor identity (`instanceof`) across separately bundled loader/plugin code. IDs or unique normalized exact names select bots/folders; duplicate names return candidate details, and fuzzy matching is not supported. `folder: null` means Unassigned. Deleting a folder preserves its bots and protects the default `__agents__` section; no operation deletes bots.
+
+The command engine uses existing native sections with a BGB fallback and awaits its owned native operation or storage write. Failure, timeout or client reset can leave an unknown mutation outcome; inspect current state before retrying. No tool automatically replays an action. Optional internal MCP routing context is host-derived, not an arbitrary model argument or a facility for generic plugin calls. The preset talks only to the local bridge; selected bot/folder results still go to the remote voice model, and the trust warnings below still apply.
+
 ## Trust and safety
 
 Plugins are trusted code. Install only plugins whose authors you trust, as you would any program.
 
-- Installed `.bgbplugin` packages run JavaScript only inside Grok Bot's renderer, never as a program on your
-  computer. All plugins share that renderer's one JavaScript realm, with the app and with each other.
-- Permissions are consent and transparency for honest plugins, not isolation. Any script in the renderer can
-  read the bridge token from `assets/bgb/boot.js`, and the bridge authorizes a renderer connection, not an
-  individual plugin, so a malicious plugin can skip the permission check by calling bridge methods directly.
-- The hard limits live in the agent: a fixed set of bridge methods and the `WATCHABLE_CODES` list. The bridge
-  never streams character keys, so no plugin can log your typing in other apps. A renderer plugin can,
-  however, read anything Grok Bot shows and do anything Grok Bot's page can do.
+- Installed `.bgbplugin` runtime scripts execute in Grok Bot's renderer. All plugins share one JavaScript
+  realm with the app and each other; renderer code can read anything Grok Bot shows.
+- Permissions are consent and transparency for honest plugins, not isolation. Any renderer script can
+  read the bridge token. MCP host methods check permission grants by caller-supplied `pluginId`, but a
+  malicious plugin can impersonate an ID with a grant; this is not a sandbox.
+- The key service's `WATCHABLE_CODES` limit means it never streams character keys from other apps.
+  MCP deliberately permits configured host commands with the user's rights and enabled tools that act
+  locally or remotely without per-call prompts; renderer-only execution does not constrain those actions.
 - `bgb plugin build` and `bgb dev` evaluate your local `plugin.ts` on your computer with your user rights;
   only run them on source you trust.
 

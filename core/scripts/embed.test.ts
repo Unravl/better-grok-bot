@@ -71,7 +71,7 @@ test("EMBED_HASH changes when only a core hook's find or replace changes, and th
 			plugins: [],
 			themes: [],
 		});
-	expect(await key(replaced)).not.toBe(await key(before));
+	expect(key(replaced)).not.toBe(key(before));
 });
 
 test("strict mode fails on a missing loader or runtime; --allow-missing skips them with warnings", async () => {
@@ -91,8 +91,9 @@ test("strict mode fails on a missing loader or runtime; --allow-missing skips th
 	expect(strict.warnings).toEqual([]);
 	const text = await generated();
 	expect(text).toMatch(/export const LOADER_JS: string = ".*BetterGrokBot/);
-	expect(text).toMatch(/export const BUNDLED_RUNTIMES: Record<string, string> = \{"demo":".*__BGB_BOOT__/);
-	expect(text).toContain('export const BUNDLED_STYLES: Record<string, string> = {"demo":".demo{}"};');
+	expect(text).toMatch(/export const BUNDLED_RUNTIMES: Record<string, string> = \{.*"demo":".*__BGB_BOOT__/);
+	// Sorted by id; the copied bundled plugins add their own entries around "demo".
+	expect(text).toMatch(/export const BUNDLED_STYLES: Record<string, string> = \{(?:.*,)?"demo":"\.demo\{\}"[,}]/);
 	expect(await readFile(path.join(root, "core", "generated", "plugins", "demo.css"), "utf8")).toBe(".demo{}");
 
 	await writeFile(path.join(root, "plugins", "demo", "runtime.ts"), "export const = ;");

@@ -73,6 +73,9 @@ function setup(stored: Record<string, unknown> = {}) {
 		get media(): MediaService {
 			return unavailable();
 		},
+		get mcp(): never {
+			return unavailable();
+		},
 	};
 	const manifest: BuildManifest = {
 		bgbVersion: "0.1.0",

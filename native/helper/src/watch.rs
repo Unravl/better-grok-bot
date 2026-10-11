@@ -91,6 +91,10 @@ impl WatchSet {
 }
 
 /// A `WatchSet` shared between the socket thread and a native event thread, plus the outbox events go to.
+///
+/// Every operation changes the set and enqueues its events under one lock, so the outbox order is
+/// the order the transitions happened in: a concurrent release can never be enqueued before the
+/// down a watch change reports for the same key.
 pub struct Keys {
 	set: Mutex<WatchSet>,
 	outbox: Sender<HelperMessage>,
@@ -104,24 +108,35 @@ impl Keys {
 		})
 	}
 
-	pub fn lock(&self) -> MutexGuard<'_, WatchSet> {
+	fn lock(&self) -> MutexGuard<'_, WatchSet> {
 		self.set.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
 	}
 
-	pub fn emit(&self, events: Vec<HelperMessage>) {
+	fn emit(&self, events: Vec<HelperMessage>) {
 		for event in events {
 			// The socket thread is gone only while the helper exits.
 			let _ = self.outbox.send(event);
 		}
 	}
 
+	/// `WatchSet::replace`; returns whether the set was empty before and is empty after.
+	pub fn replace(&self, codes: &[&'static str], modifier_down: impl Fn(&'static str) -> bool) -> (bool, bool) {
+		let mut set = self.lock();
+		let was_empty = set.is_empty();
+		let events = set.replace(codes, modifier_down);
+		self.emit(events);
+		(was_empty, set.is_empty())
+	}
+
 	pub fn press(&self, code: Option<&'static str>) {
-		let events = self.lock().press(code);
+		let mut set = self.lock();
+		let events = set.press(code);
 		self.emit(events);
 	}
 
 	pub fn release(&self, code: Option<&'static str>) {
-		let events = self.lock().release(code);
+		let mut set = self.lock();
+		let events = set.release(code);
 		self.emit(events);
 	}
 }

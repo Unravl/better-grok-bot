@@ -1,5 +1,8 @@
 import {
 	PermissionError,
+	SidebarError,
+	isSidebarResult,
+	parseSidebarCommand,
 	type BetterGrokBotRuntime,
 	type BridgeState,
 	type BuildManifest,
@@ -14,8 +17,11 @@ import {
 	type SettingField,
 	type UiDeps,
 	type UiPrimitives,
+	type SidebarCommand,
+	type SidebarResult,
 } from "../sdk/index.ts";
 import { createBoundary, jsxFromReact, NullComponent } from "./boundary.ts";
+import { renameCatalog } from "./brand.ts";
 import type { HookRegistry } from "./hooks.ts";
 import { createLogger, describeError } from "./logger.ts";
 import { isRecord } from "./payload.ts";
@@ -37,6 +43,8 @@ export interface LoaderRuntime {
 	runtime: BetterGrokBotRuntime;
 	/** The settings object a plugin's `ctx.settings` uses (shared with the settings section). */
 	settingsFor(id: string, fields: Readonly<Record<string, SettingField>>): PluginSettings;
+	/** Fixed, rejecting command path for the loaded active sidebar-folders plugin only. */
+	executeSidebar(command: SidebarCommand): Promise<SidebarResult>;
 }
 
 interface LoadedPlugin {
@@ -67,13 +75,15 @@ export function createRuntime(options: RuntimeOptions): LoaderRuntime {
 		if (known === undefined || (known.state !== "active" && plugin.state === "active")) manifestPlugins.set(plugin.id, plugin);
 	}
 	const defined = new Set<string>();
+	let brandCatalogFailed = false;
 	const loaded = new Map<string, LoadedPlugin>();
 	/** Runtime error per plugin downgraded from `active` to `runtime-failed`. */
 	const runtimeFailures = new Map<string, string>();
 	const reportedCalls = new Set<string>();
 	const components = new Map<string, unknown>();
 	const storages = new Map<string, PluginStorage>();
-	const settingsById = new Map<string, PluginSettings>();
+	/** Per plugin id, one settings object per schema (keyed by its JSON); see `settingsFor`. */
+	const settingsById = new Map<string, Map<string, PluginSettings>>();
 	const loggers = new Map<string, PluginLogger>();
 
 	const loggerFor = (id: string): PluginLogger => {
@@ -94,11 +104,20 @@ export function createRuntime(options: RuntimeOptions): LoaderRuntime {
 		return storage;
 	};
 
+	// The plugin and the settings section share the object for the schema this page loaded; a
+	// different schema (an update the agent reports before reload) gets its own object over the same
+	// storage, so asking for a field the loaded schema lacks never throws.
 	const settingsFor = (id: string, fields: Readonly<Record<string, SettingField>>): PluginSettings => {
-		let settings = settingsById.get(id);
+		let bySchema = settingsById.get(id);
+		if (bySchema === undefined) {
+			bySchema = new Map();
+			settingsById.set(id, bySchema);
+		}
+		const schemaKey = JSON.stringify(fields);
+		let settings = bySchema.get(schemaKey);
 		if (settings === undefined) {
 			settings = createSettings(id, fields, storageFor(id));
-			settingsById.set(id, settings);
+			bySchema.set(schemaKey, settings);
 		}
 		return settings;
 	};
@@ -112,6 +131,10 @@ export function createRuntime(options: RuntimeOptions): LoaderRuntime {
 			get media() {
 				if (!granted.includes("media")) throw new PermissionError(id, "media");
 				return services.mediaFor(id);
+			},
+			get mcp() {
+				if (!granted.includes("mcp")) throw new PermissionError(id, "mcp");
+				return services.mcpFor(id);
 			},
 		});
 
@@ -268,7 +291,31 @@ export function createRuntime(options: RuntimeOptions): LoaderRuntime {
 		provideReact: (react: unknown) => hooks.provideReact(react),
 		provideClient: <T>(client: T): T => hooks.provideClient(client),
 		settingsSection: (ui: UiPrimitives) => hooks.settingsSection(ui),
+		brandCatalog(messages: unknown): unknown {
+			try {
+				return renameCatalog(messages);
+			} catch (error) {
+				if (!brandCatalogFailed) log.error("renaming the app's messages failed:", error);
+				brandCatalogFailed = true;
+				return undefined;
+			}
+		},
+		sidebarBrand: () => hooks.sidebarBrand(),
 	};
 
-	return { runtime: Object.freeze(runtime), settingsFor };
+	const executeSidebar = async (command: SidebarCommand): Promise<SidebarResult> => {
+		const parsed = parseSidebarCommand(command);
+		const id = "sidebar-folders";
+		const plugin = loaded.get(id);
+		if (manifestPlugins.get(id)?.state !== "active" || runtimeFailures.has(id) || plugin === undefined) {
+			throw new SidebarError("unavailable", "Sidebar folders is not loaded and active in this renderer");
+		}
+		const fn = Object.hasOwn(plugin.exports, "executeSidebar") ? plugin.exports.executeSidebar : undefined;
+		if (typeof fn !== "function") throw new SidebarError("unavailable", "Sidebar folders command handler is unavailable");
+		const result: unknown = await Reflect.apply(fn, plugin.exports, [parsed]);
+		if (!isSidebarResult(result) || result.operation !== parsed.operation) throw new SidebarError("internal", "Sidebar folders returned an invalid command result");
+		return result;
+	};
+
+	return { runtime: Object.freeze(runtime), settingsFor, executeSidebar };
 }

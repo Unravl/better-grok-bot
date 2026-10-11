@@ -8,6 +8,7 @@ import { type BuildOutcome, build } from "../build/index.ts";
 import { ensureConfig, mutateConfig, readConfig } from "../config.ts";
 import type { CoreContext } from "../context.ts";
 import { errorMessage } from "../errors.ts";
+import { registerSidebarMcpConfig } from "../mcp-sidebar-config.ts";
 import { ensureDataDir, rendererUrl } from "../paths.ts";
 import type { AppInstall } from "../platform/types.ts";
 import { mutateState, readState } from "../state.ts";
@@ -182,6 +183,8 @@ export async function runSetup(ctx: CoreContext, opts: SetupOptions, overrides: 
 			await platform.autostartInstall(binPath, paths);
 			undos.push({ what: "remove autostart", run: () => platform.autostartRemove() });
 		}
+
+		await registerSidebarMcpConfig(ctx);
 
 		await platform.startAgent(binPath, paths);
 		undos.push({ what: "stop the agent", run: () => platform.stopAgent(paths) });

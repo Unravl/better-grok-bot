@@ -160,6 +160,29 @@ export async function sha256File(file: string): Promise<string> {
 	return hash.digest("hex");
 }
 
+/**
+ * The file `url` downloads to directly inside `dir`: the URL's last path segment, percent-decoded when
+ * that is valid, or `download` plus its extension when it is empty or not a plain file name (path
+ * separators, `:`, NUL, or only dots), so a crafted URL cannot name a file outside `dir`.
+ */
+export function downloadFilePath(dir: string, url: string): string {
+	const raw = path.posix.basename(new URL(url).pathname);
+	let name: string;
+	try {
+		name = decodeURIComponent(raw);
+	} catch {
+		name = raw;
+	}
+	if (!name || /[\\/:\0]/.test(name) || /^\.+$/.test(name)) {
+		const ext = path.posix.extname(name.replaceAll("\\", "/"));
+		name = `download${/^\.[A-Za-z0-9]{1,16}$/.test(ext) ? ext : ""}`;
+	}
+	const root = path.resolve(dir);
+	const file = path.join(root, name);
+	if (path.dirname(file) !== root) throw new ScriptError(`refusing download file name ${JSON.stringify(name)} outside ${root}`);
+	return file;
+}
+
 /** Downloads `url` to `dest` (via `<dest>.part` + rename), retrying network failures up to 3 times. */
 export async function download(url: string, dest: string): Promise<void> {
 	let lastError: unknown;

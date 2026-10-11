@@ -1,8 +1,9 @@
 import type { AppAccess, JsxFn, PluginLogger, ReactLike, UiPrimitives } from "../sdk/index.ts";
 import { createBoundary, jsxFromReact } from "./boundary.ts";
+import { createSidebarBrand } from "./brand.ts";
 import { isRecord } from "./payload.ts";
 
-/** Receives what the core hooks (`bgb-react`, `bgb-client`, `bgb-settings`) hand over from the app. */
+/** Receives what the core hooks (`bgb-react`, `bgb-client`, `bgb-settings`, `bgb-brand`) hand over from the app. */
 export interface HookRegistry {
 	readonly React: ReactLike | undefined;
 	readonly app: AppAccess;
@@ -12,6 +13,8 @@ export interface HookRegistry {
 	provideClient<T>(client: T): T;
 	/** The Better Grok Bot section element, or null. Never throws. */
 	settingsSection(ui: UiPrimitives): unknown;
+	/** The Better Grok Bot sidebar label element, or null. Never throws. */
+	sidebarBrand(): unknown;
 }
 
 export interface HookRegistryOptions {
@@ -60,8 +63,9 @@ export function createHookRegistry(options: HookRegistryOptions): HookRegistry {
 	let section: unknown;
 	const reported = new Set<string>();
 	const clientListeners = new Set<ClientListener>();
+	let brand: unknown;
 
-	/** Logs each settings-section problem once (the page re-renders often) and yields the fallback. */
+	/** Logs each settings-section/brand problem once (the page re-renders often) and yields the fallback. */
 	const reportOnce = (message: string, error?: unknown): null => {
 		if (!reported.has(message)) {
 			reported.add(message);
@@ -152,6 +156,16 @@ export function createHookRegistry(options: HookRegistryOptions): HookRegistry {
 				return react.createElement(section, { key: "bgb", ui: next });
 			} catch (error) {
 				return reportOnce("the settings section failed:", error);
+			}
+		},
+
+		sidebarBrand(): unknown {
+			try {
+				if (react === undefined || jsx === undefined) return reportOnce("the sidebar label needs the app's React, which never arrived");
+				brand ??= createBoundary(react, jsx, createSidebarBrand(jsx), "BetterGrokBot(brand)", log);
+				return react.createElement(brand, { key: "bgb-brand" });
+			} catch (error) {
+				return reportOnce("the sidebar label failed:", error);
 			}
 		},
 	});

@@ -133,7 +133,8 @@ jobs:
         env:
           URL: ${{ matrix.url }}
           FORMAT: ${{ matrix.format }}
-        run: bun scripts/fetch-upstream.ts --url "$URL" --format "$FORMAT" --install
+          VERSION: ${{ matrix.version }}
+        run: bun scripts/fetch-upstream.ts --url "$URL" --format "$FORMAT" --install --expect-version "$VERSION"
       - name: End-to-end test
         env:
           ARCHIVE: ${{ steps.archive.outputs.file }}

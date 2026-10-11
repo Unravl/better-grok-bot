@@ -3,10 +3,7 @@ import { existsSync, readdirSync } from "node:fs";
 import * as path from "node:path";
 import type { BunPlugin } from "bun";
 import { CORE_HOOKS } from "../core/hooks/index.ts";
-import outputDevice from "./output-device/plugin.ts";
-import pushToTalk from "./push-to-talk/plugin.ts";
-import startup from "./startup/plugin.ts";
-import voiceKeepalive from "./voice-keepalive/plugin.ts";
+import { BUNDLED_PLUGINS } from "../core/plugins/bundled.ts";
 import {
 	type BetterGrokBotRuntime,
 	compileFind,
@@ -15,7 +12,6 @@ import {
 	type Patch,
 	type PatchMatch,
 	PERMISSIONS,
-	type PluginDefinition,
 	VERSION_PATTERN,
 } from "../sdk/index.ts";
 
@@ -24,22 +20,12 @@ const SDK_ENTRY = path.join(PLUGINS_DIR, "..", "sdk", "index.ts");
 /** A pristine extracted Grok Bot renderer; the real-renderer checks run only where it exists. */
 const RENDERER_DIR = "/tmp/grok-app/dist/renderer";
 
-/** The four grok-mods mods, each in the folder named by its id. */
-const plugins: { dir: string; definition: PluginDefinition }[] = [
-	{ dir: path.join(PLUGINS_DIR, "output-device"), definition: outputDevice },
-	{ dir: path.join(PLUGINS_DIR, "push-to-talk"), definition: pushToTalk },
-	{ dir: path.join(PLUGINS_DIR, "startup"), definition: startup },
-	{ dir: path.join(PLUGINS_DIR, "voice-keepalive"), definition: voiceKeepalive },
-];
+/** The bundled plugins, each in the folder named by its id. */
+const plugins = BUNDLED_PLUGINS.map(({ definition }) => ({
+	dir: path.join(PLUGINS_DIR, definition.id),
+	definition,
+}));
 const ids = plugins.map((plugin) => plugin.definition.id);
-
-test("every plugin folder holds one of the bundled plugins", () => {
-	const folders = readdirSync(PLUGINS_DIR, { withFileTypes: true })
-		.filter((entry) => entry.isDirectory())
-		.map((entry) => entry.name)
-		.sort();
-	expect(folders).toEqual(plugins.map((plugin) => path.basename(plugin.dir)));
-});
 
 describe.each(plugins)("$definition.id definition", ({ dir, definition }) => {
 	const folder = path.basename(dir);

@@ -79,6 +79,7 @@ test("plugins come in apply order with pre-build states and granted permissions"
 		["bgb-react", "core", "ready", []],
 		["bgb-settings", "core", "ready", []],
 		["bgb-client", "core", "ready", []],
+		["bgb-brand", "core", "ready", []],
 		...bundled.map((def): Row => [
 			def.id,
 			"bundled",

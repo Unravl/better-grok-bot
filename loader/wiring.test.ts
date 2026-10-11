@@ -115,6 +115,18 @@ describe("reconnect sequence", () => {
 		expect(store.getSnapshot().reloadPending).toBe(false);
 	});
 
+	test("a themes.styles reply older than a later themes.changed is dropped", async () => {
+		const { last } = setup();
+		const socket = last();
+		socket.accept();
+		socket.welcome(RUNNING_KEY);
+		const stale = socket.lastRequest("themes.styles");
+		socket.event("themes.changed", { styles: [{ id: "new", css: "b{}" }] });
+		socket.reply(stale, { styles: [{ id: "old", css: "a{}" }] });
+		for (let round = 0; round < 50; round++) await Promise.resolve();
+		expect([...document.querySelectorAll("style[data-bgb-style]")].map((style) => style.getAttribute("data-bgb-style"))).toEqual(["theme:new"]);
+	});
+
 	test("bridge.moving sets reloadPending; dev.reload reloads only pages with a dev plugin", () => {
 		const plain = setup();
 		plain.last().accept();

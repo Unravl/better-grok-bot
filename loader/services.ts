@@ -3,6 +3,11 @@ import {
 	type AgentStatus,
 	type KeysService,
 	type KeysState,
+	type McpServerConfig,
+	type McpServerStatus,
+	type McpService,
+	type McpTool,
+	type McpToolResult,
 	type MediaService,
 	type MediaState,
 	type PluginLogger,
@@ -16,6 +21,7 @@ export type ServicesBridge = Pick<BridgeClient, "state" | "request" | "on" | "su
 export interface ServicesClient {
 	keysFor(pluginId: string): KeysService;
 	mediaFor(pluginId: string): MediaService;
+	mcpFor(pluginId: string): McpService;
 	/** Reconnect sequence steps 2–3: send this window's watch union (even when empty) and duck level. */
 	resync(): void;
 	/** Service states from a `status.get` result. */
@@ -30,9 +36,10 @@ interface Watcher {
 }
 
 /**
- * The window's side of the `keys` and `media` services. Every plugin's watches share one
- * code → listeners map and one `keys.watch` union; every plugin keeps one duck level and the
- * window sends the minimum. Losing the agent releases every held key (`listener(false)`).
+ * The window's side of the `keys`, `media` and `mcp` services. Every plugin's watches share
+ * one code → listeners map and one `keys.watch` union; every plugin keeps one duck level
+ * and the window sends the minimum. Losing the agent releases every held key
+ * (`listener(false)`). MCP requests retain plugin identity and propagate bridge failures.
  */
 export function createServicesClient(bridge: ServicesBridge, log: PluginLogger): ServicesClient {
 	const watchers = new Map<string, Set<Watcher>>();
@@ -43,6 +50,7 @@ export function createServicesClient(bridge: ServicesBridge, log: PluginLogger):
 	const mediaListeners = new Set<() => void>();
 	const keysServices = new Map<string, KeysService>();
 	const mediaServices = new Map<string, MediaService>();
+	const mcpServices = new Map<string, McpService>();
 	const reportedUnsupported = new Set<string>();
 	let keys: ServiceStateInfo<KeysState> = { state: "error", detail: NOT_CONNECTED };
 	let media: ServiceStateInfo<MediaState> = { state: "error", detail: NOT_CONNECTED };
@@ -209,6 +217,30 @@ export function createServicesClient(bridge: ServicesBridge, log: PluginLogger):
 			subscribe: (listener: () => void) => subscribeTo(mediaListeners, listener),
 		});
 
+	const createMcp = (pluginId: string): McpService =>
+		Object.freeze({
+			async list(): Promise<McpServerStatus[]> {
+				const { servers } = await bridge.request("mcp.list", { pluginId });
+				return servers;
+			},
+			async save(server: McpServerConfig): Promise<void> {
+				await bridge.request("mcp.save", { pluginId, server });
+			},
+			async remove(id: string): Promise<void> {
+				await bridge.request("mcp.remove", { pluginId, id });
+			},
+			connect(id: string): Promise<McpServerStatus> {
+				return bridge.request("mcp.connect", { pluginId, id });
+			},
+			async tools(): Promise<McpTool[]> {
+				const { tools } = await bridge.request("mcp.tools", { pluginId });
+				return tools;
+			},
+			call(serverId: string, name: string, args: Record<string, unknown>): Promise<McpToolResult> {
+				return bridge.request("mcp.call", { pluginId, serverId, name, arguments: args });
+			},
+		});
+
 	return Object.freeze({
 		keysFor(pluginId: string): KeysService {
 			let service = keysServices.get(pluginId);
@@ -223,6 +255,14 @@ export function createServicesClient(bridge: ServicesBridge, log: PluginLogger):
 			if (service === undefined) {
 				service = createMedia(pluginId);
 				mediaServices.set(pluginId, service);
+			}
+			return service;
+		},
+		mcpFor(pluginId: string): McpService {
+			let service = mcpServices.get(pluginId);
+			if (service === undefined) {
+				service = createMcp(pluginId);
+				mcpServices.set(pluginId, service);
 			}
 			return service;
 		},

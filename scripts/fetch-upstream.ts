@@ -3,29 +3,31 @@
  * Downloads, extracts or installs an upstream Grok Bot release from the public release feed.
  *
  *   bun scripts/fetch-upstream.ts (--platform <p> | --url <downloadUrl>) --format <dmg|exe|appimage|deb|rpm>
- *       [--extract <dir>] [--install] [--print-version] [--print-json]
+ *       [--extract <dir>] [--install [--expect-version <v>]] [--print-version] [--print-json]
  *
  * `--platform` ∈ darwin-arm64|darwin-x64|win32-x64|win32-arm64|linux-x64|linux-arm64 (Windows maps to
  * `<p>-user` in the feed). `--format` picks the feed field. `--url` downloads exactly that URL.
  * Downloads are cached in `.cache/upstream/<sha256(url)>/`. `--extract`/`--install` print the asar
  * path; with only `--print-*` nothing is downloaded; with no action the downloaded file path is printed.
- * `--install` overwrites the machine's Grok Bot and is refused unless `CI=true`.
+ * `--install` overwrites the machine's Grok Bot and is refused unless `CI=true`. It fails unless the
+ * installed `app.asar` is Grok Bot at the feed's version (`--platform`) or `--expect-version` (`--url`).
  */
 import { chmod, mkdir, mkdtemp, readdir, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { parseArgs } from "node:util";
+import { readAppPackage } from "../core/app/package.ts";
 import { feedPlatformOf, feedUrlField, FORMATS, FORMATS_BY_OS, type Format, readFeed } from "./feed.ts";
-import { download, REPO_ROOT, run, runMain, ScriptError, sha256Hex } from "./lib.ts";
+import { download, downloadFilePath, REPO_ROOT, run, runMain, ScriptError, sha256Hex } from "./lib.ts";
 
 const PLATFORMS = ["darwin-arm64", "darwin-x64", "win32-x64", "win32-arm64", "linux-x64", "linux-arm64"] as const;
 
-const USAGE = `usage: bun scripts/fetch-upstream.ts (--platform <${PLATFORMS.join("|")}> | --url <downloadUrl>) --format <${FORMATS.join("|")}> [--extract <dir>] [--install] [--print-version] [--print-json]`;
+const USAGE = `usage: bun scripts/fetch-upstream.ts (--platform <${PLATFORMS.join("|")}> | --url <downloadUrl>) --format <${FORMATS.join("|")}> [--extract <dir>] [--install [--expect-version <v>]] [--print-version] [--print-json]`;
 
 /** Downloads `url` once into `.cache/upstream/<sha256(url)>/<file name>`. */
 async function cachedDownload(url: string): Promise<string> {
 	const dir = path.join(REPO_ROOT, ".cache", "upstream", sha256Hex(url));
-	const file = path.join(dir, decodeURIComponent(path.posix.basename(new URL(url).pathname)) || "download");
+	const file = downloadFilePath(dir, url);
 	if (await stat(file).catch(() => null)) {
 		console.error(`[fetch] cached ${file}`);
 		return file;
@@ -124,7 +126,17 @@ async function extract(file: string, format: Format, dest: string): Promise<stri
 	return findAsar(dest);
 }
 
-async function install(file: string, format: Format): Promise<string> {
+/** Installs `file` system-wide and returns the installed `app.asar`, after checking it is Grok Bot `version` (when known). */
+async function install(file: string, format: Format, version: string | null): Promise<string> {
+	const asarPath = await runInstaller(file, format);
+	const installed = (await readAppPackage(asarPath)).version;
+	if (version !== null && installed !== version) {
+		throw new ScriptError(`installed Grok Bot is ${installed}, not the requested ${version} (${asarPath})`);
+	}
+	return asarPath;
+}
+
+async function runInstaller(file: string, format: Format): Promise<string> {
 	switch (format) {
 		case "dmg": {
 			const target = "/Applications/Grok Bot.app";
@@ -136,9 +148,16 @@ async function install(file: string, format: Format): Promise<string> {
 			return path.join(target, "Contents", "Resources", "app.asar");
 		}
 		case "exe": {
-			await run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", `Start-Process -Wait -FilePath '${file.replaceAll("'", "''")}' -ArgumentList '/S'`], {
-				timeoutMs: 600_000,
-			});
+			// `-PassThru` exposes the installer's exit code, which `Start-Process -Wait` alone drops.
+			const quoted = file.replaceAll("'", "''");
+			const installer = await run(
+				["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", `$p = Start-Process -Wait -PassThru -FilePath '${quoted}' -ArgumentList '/S'; exit $p.ExitCode`],
+				{ timeoutMs: 600_000, allowFail: true },
+			);
+			if (installer.exitCode !== 0) {
+				const detail = installer.stderr.trim();
+				throw new ScriptError(`the Grok Bot installer exited with ${installer.exitCode}${detail ? `:\n${detail}` : ""}`);
+			}
 			const localAppData = process.env.LOCALAPPDATA;
 			if (!localAppData) throw new ScriptError("LOCALAPPDATA is not set");
 			const asarPath = path.join(localAppData, "Programs", "Grok Bot", "resources", "app.asar");
@@ -162,6 +181,7 @@ await runMain("fetch-upstream", async () => {
 			url: { type: "string" },
 			format: { type: "string" },
 			extract: { type: "string" },
+			"expect-version": { type: "string" },
 			install: { type: "boolean" },
 			"print-version": { type: "boolean" },
 			"print-json": { type: "boolean" },
@@ -173,6 +193,8 @@ await runMain("fetch-upstream", async () => {
 		throw new ScriptError(USAGE, 2);
 	}
 	const printing = values["print-version"] || values["print-json"];
+	if (values["expect-version"] !== undefined && !values.install) throw new ScriptError("--expect-version needs --install", 2);
+	let version = values["expect-version"] ?? null;
 
 	let url: string;
 	if (values.platform !== undefined) {
@@ -185,6 +207,7 @@ await runMain("fetch-upstream", async () => {
 		const field = entry[feedUrlField(format)];
 		if (!field) throw new ScriptError(notPublished);
 		url = field;
+		version ??= entry.version;
 		if (values["print-version"]) console.log(entry.version);
 		if (values["print-json"]) {
 			console.log(
@@ -211,7 +234,7 @@ await runMain("fetch-upstream", async () => {
 
 	const file = await cachedDownload(url);
 	if (values.extract) console.log(await extract(file, format, path.resolve(values.extract)));
-	if (values.install) console.log(await install(file, format));
+	if (values.install) console.log(await install(file, format, version));
 	if (!values.extract && !values.install) console.log(file);
 	return 0;
 });

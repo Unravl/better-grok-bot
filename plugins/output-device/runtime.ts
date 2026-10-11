@@ -25,6 +25,16 @@ interface SinkSelectableContext extends AudioContext {
 
 type Sink = { kind: "context"; target: SinkSelectableContext } | { kind: "element"; target: HTMLMediaElement };
 
+/** A sink following the preference, and the state of its one-at-a-time switching. */
+interface TrackedSink {
+	sink: Sink;
+	purpose: string;
+	/** The device this sink fell back from to the system default; the next preference or device-list change retries it. */
+	abandoned: string | null;
+	/** The running switch chain, settled once the sink plays through its latest target; `null` while idle. */
+	switching: Promise<void> | null;
+}
+
 const PREFERENCE_KEY = "outputDeviceId";
 const SYSTEM_DEFAULT_LABEL = "System Default";
 const ROW_LABEL = "Speaker";
@@ -37,14 +47,20 @@ function describeSink(sink: Sink, purpose: string): string {
 	return `${purpose} ${sink.kind === "context" ? "AudioContext" : "<audio>"}`;
 }
 
-function createOutputDevice(ctx: PluginContext) {
+/** The sink's current device id; `""` is the system default. */
+function currentSinkId(sink: Sink): string {
+	const sinkId = sink.target.sinkId;
+	return typeof sinkId === "string" ? sinkId : "";
+}
+
+export function createOutputDevice(ctx: PluginContext) {
 	const mediaDevices: MediaDevices | undefined = globalThis.navigator?.mediaDevices;
 	/** Referentially stable until the device list actually changes (a `useSyncExternalStore` snapshot). */
 	let devices: readonly OutputDevice[] = [];
 	let devicesLoaded = false;
 	let refreshGeneration = 0;
 	const deviceListeners = new Set<() => void>();
-	const sinks = new Map<Sink["target"], { sink: Sink; purpose: string }>();
+	const sinks = new Map<Sink["target"], TrackedSink>();
 
 	const readPreference = (): string | null => {
 		const stored = ctx.storage.get<unknown>(PREFERENCE_KEY, null);
@@ -60,7 +76,14 @@ function createOutputDevice(ctx: PluginContext) {
 		return devices.some((device) => device.deviceId === preferred) ? preferred : null;
 	};
 
-	const setSink = async (sink: Sink, purpose: string, deviceId: string): Promise<void> => {
+	/** Where the sink should play now: the desired device, unless this sink already fell back from it. */
+	const targetFor = (tracked: TrackedSink): string => {
+		const deviceId = desiredDeviceId() ?? "";
+		return deviceId === tracked.abandoned ? "" : deviceId;
+	};
+
+	const switchSink = async (tracked: TrackedSink, deviceId: string): Promise<void> => {
+		const { sink, purpose } = tracked;
 		try {
 			await sink.target.setSinkId(deviceId);
 			ctx.log.info(`${describeSink(sink, purpose)} now plays through ${deviceId === "" ? "the system default" : `device ${deviceId}`}`);
@@ -70,18 +93,43 @@ function createOutputDevice(ctx: PluginContext) {
 				return;
 			}
 			ctx.log.warn(`could not route ${describeSink(sink, purpose)} to device ${deviceId}; falling back to the system default:`, error);
-			await setSink(sink, purpose, "");
+			tracked.abandoned = deviceId;
 		}
 	};
 
-	const applyTo = (sink: Sink, purpose: string): void => {
-		const deviceId = desiredDeviceId() ?? "";
-		const sinkId = sink.target.sinkId;
-		if ((typeof sinkId === "string" ? sinkId : "") !== deviceId) void setSink(sink, purpose, deviceId);
+	/**
+	 * Switches the sink until it plays through its latest target. `setSinkId` calls on one sink never
+	 * overlap: a choice made while a switch is in flight is picked up when that switch settles, since the
+	 * settled switch has already moved the sink. A target is attempted at most once in a row, so a
+	 * device (or the system default) that keeps failing ends the chain instead of looping.
+	 */
+	const reconcile = (tracked: TrackedSink): Promise<void> => {
+		if (tracked.switching !== null) return tracked.switching;
+		let settled = false;
+		const chain = (async () => {
+			try {
+				let attempted: string | null = null;
+				for (let target = targetFor(tracked); target !== attempted && currentSinkId(tracked.sink) !== target; target = targetFor(tracked)) {
+					attempted = target;
+					await switchSink(tracked, target);
+				}
+			} finally {
+				settled = true;
+				tracked.switching = null;
+			}
+		})();
+		// A sink already on its target settles synchronously, leaving nothing in flight to track.
+		if (!settled) tracked.switching = chain;
+		return chain;
+	};
+
+	const applyTo = (tracked: TrackedSink): void => {
+		tracked.abandoned = null;
+		void reconcile(tracked);
 	};
 
 	const applyToAll = (): void => {
-		for (const { sink, purpose } of sinks.values()) applyTo(sink, purpose);
+		for (const tracked of sinks.values()) applyTo(tracked);
 	};
 
 	const refreshDevices = async (): Promise<void> => {
@@ -117,9 +165,11 @@ function createOutputDevice(ctx: PluginContext) {
 		applyToAll();
 	};
 
-	const track = (sink: Sink, purpose: string): void => {
-		sinks.set(sink.target, { sink, purpose });
-		applyTo(sink, purpose);
+	const track = (sink: Sink, purpose: string): TrackedSink => {
+		const tracked: TrackedSink = { sink, purpose, abandoned: null, switching: null };
+		sinks.set(sink.target, tracked);
+		applyTo(tracked);
+		return tracked;
 	};
 
 	mediaDevices?.addEventListener("devicechange", () => void refreshDevices());
@@ -159,12 +209,15 @@ function createOutputDevice(ctx: PluginContext) {
 			return context;
 		}
 		const sink: Sink = { kind: "context", target: context };
+		const tracked = track(sink, purpose);
 		let outputLost = false;
 		context.addEventListener("error", () => {
 			if (outputLost || context.state === "closed") return;
 			outputLost = true;
 			ctx.log.warn(`${purpose} AudioContext lost output device ${JSON.stringify(context.sinkId)}; falling back to the system default`);
-			void setSink(sink, purpose, "")
+			const lost = currentSinkId(sink);
+			if (lost !== "") tracked.abandoned = lost;
+			reconcile(tracked)
 				.then(async () => {
 					if (context.state === "suspended") await context.resume();
 				})
@@ -179,7 +232,6 @@ function createOutputDevice(ctx: PluginContext) {
 				context.resume().catch((error: unknown) => ctx.log.error(`could not resume ${purpose} AudioContext after its output error:`, error));
 			}
 		});
-		track(sink, purpose);
 		return context;
 	};
 

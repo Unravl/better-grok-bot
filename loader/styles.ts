@@ -1,8 +1,13 @@
-import type { BootPayload } from "../sdk/index.ts";
+/** A boot style; `core` styles come from core hooks and precede plugin and theme styles. */
+export interface LoaderStyle {
+	kind: "core" | "plugin" | "theme";
+	id: string;
+	css: string;
+}
 
 export interface StyleManager {
-	/** Boot styles (plugins, then enabled themes) as `<style data-bgb-style="<kind>:<id>">`. */
-	inject(styles: BootPayload["styles"]): void;
+	/** Boot styles (core, plugins, then enabled themes) as `<style data-bgb-style="<kind>:<id>">`. */
+	inject(styles: readonly LoaderStyle[]): void;
 	/** Replaces every `<style data-bgb-style="theme:*">` with these. */
 	replaceThemes(styles: readonly { id: string; css: string }[]): void;
 }
@@ -13,7 +18,7 @@ const THEME_SELECTOR = 'style[data-bgb-style^="theme:"]';
 export function createStyleManager(doc: Document): StyleManager {
 	const container = (): HTMLElement => doc.head ?? doc.documentElement;
 
-	const element = (kind: "plugin" | "theme", id: string, css: string): HTMLStyleElement => {
+	const element = (kind: LoaderStyle["kind"], id: string, css: string): HTMLStyleElement => {
 		const style = doc.createElement("style");
 		style.dataset.bgbStyle = `${kind}:${id}`;
 		style.textContent = css;
@@ -21,7 +26,7 @@ export function createStyleManager(doc: Document): StyleManager {
 	};
 
 	return Object.freeze({
-		inject(styles: BootPayload["styles"]): void {
+		inject(styles: readonly LoaderStyle[]): void {
 			const append = (): void => {
 				container().append(...styles.map((style) => element(style.kind, style.id, style.css)));
 			};

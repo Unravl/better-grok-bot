@@ -1,7 +1,9 @@
 /** Renderer ↔ agent bridge protocol (JSON text frames over `ws://127.0.0.1:<port>/bgb`). */
 import type { Permission, Platform } from "./constants.ts";
 import type { PluginStatus, ThemeInfo } from "./manifest.ts";
+import type { McpServerConfig, McpServerStatus, McpTool, McpToolResult } from "./mcp.ts";
 import type { KeysState, MediaState } from "./runtime.ts";
+import type { SidebarCommand, SidebarResult } from "./sidebar.ts";
 
 export const BRIDGE_PATH = "/bgb";
 export const HELPER_PATH = "/helper";
@@ -24,6 +26,8 @@ export interface HelloFrame {
 	/** From the user agent. */
 	appVersion: string;
 	bgbVersion: string;
+	/** Loader capabilities; omitted by older clients and CLI connections. */
+	capabilities?: ("sidebar-folders")[];
 }
 
 export interface WelcomeFrame {
@@ -52,14 +56,25 @@ export type ResponseFrame =
 	| { type: "res"; id: number; ok: true; result: unknown }
 	| { type: "res"; id: number; ok: false; error: BridgeError };
 
+/** The only host-initiated renderer operation; addressed to one authenticated socket. */
+export interface SidebarRequestFrame {
+	type: "sidebar.req";
+	id: number;
+	command: SidebarCommand;
+}
+
+export type SidebarResponseFrame =
+	| { type: "sidebar.res"; id: number; ok: true; result: SidebarResult }
+	| { type: "sidebar.res"; id: number; ok: false; error: BridgeError };
+
 export interface EventFrame<E extends BridgeEvent = BridgeEvent> {
 	type: "event";
 	name: E;
 	data: BridgeEvents[E];
 }
 
-export type ClientFrame = HelloFrame | RequestFrame;
-export type ServerFrame = WelcomeFrame | ResponseFrame | EventFrame;
+export type ClientFrame = HelloFrame | RequestFrame | SidebarResponseFrame;
+export type ServerFrame = WelcomeFrame | ResponseFrame | EventFrame | SidebarRequestFrame;
 
 export interface ServiceStateInfo<S extends string> {
 	state: S;
@@ -125,6 +140,13 @@ export interface BridgeMethods {
 	"keys.watch": { params: { codes: string[] }; result: { unsupported: string[] } };
 	"keys.install": { params: Empty; result: Empty };
 	"media.duck": { params: { level: number }; result: Empty };
+	"mcp.list": { params: { pluginId: string }; result: { servers: McpServerStatus[] } };
+	"mcp.save": { params: { pluginId: string; server: McpServerConfig }; result: Empty };
+	"mcp.remove": { params: { pluginId: string; id: string }; result: Empty };
+	"mcp.connect": { params: { pluginId: string; id: string }; result: McpServerStatus };
+	"mcp.tools": { params: { pluginId: string }; result: { tools: McpTool[] } };
+	"mcp.call": { params: { pluginId: string; serverId: string; name: string; arguments: Record<string, unknown> }; result: McpToolResult };
+	"sidebar.execute": { params: { command: SidebarCommand; rendererConnectionId?: number }; result: SidebarResult };
 }
 
 export type BridgeMethod = keyof BridgeMethods;
@@ -146,11 +168,20 @@ export const BRIDGE_METHODS: readonly BridgeMethod[] = [
 	"keys.watch",
 	"keys.install",
 	"media.duck",
+	"mcp.list",
+	"mcp.save",
+	"mcp.remove",
+	"mcp.connect",
+	"mcp.tools",
+	"mcp.call",
+	"sidebar.execute",
 ];
 
 /** Client-side deadline per method. */
 export function methodTimeoutMs(method: BridgeMethod): number {
 	switch (method) {
+		case "mcp.call":
+			return 120_000;
 		case "plugins.inspect":
 		case "plugins.update":
 			return 90_000;

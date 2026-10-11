@@ -80,6 +80,9 @@ enum SetOutcome {
 	Set,
 	/// The user moved the volume or the session is gone: the helper stops managing it.
 	Dropped,
+	/// The session is still there and untouched but the set failed: the record stays as it was,
+	/// original included, for the next relevel, fade step, or exit restore.
+	Failed,
 }
 
 struct DuckState {
@@ -215,6 +218,7 @@ impl DuckState {
 					record.last_set = value;
 					true
 				}
+				SetOutcome::Failed => true,
 				SetOutcome::Dropped => false,
 			}
 		});
@@ -239,6 +243,8 @@ impl DuckState {
 					record.last_set = value;
 					steps_left > 1
 				}
+				// Like the macOS helper, only the final step gives up on a session it cannot set.
+				SetOutcome::Failed => steps_left > 1,
 				SetOutcome::Dropped => false,
 			}
 		});
@@ -320,7 +326,7 @@ fn set_if_unchanged(record: &Record, value: f32, log: &Log) -> SetOutcome {
 		Ok(()) => SetOutcome::Set,
 		Err(error) => {
 			log.warn(&format!("duck: {}: cannot set its volume: {error}", record.name));
-			SetOutcome::Dropped
+			SetOutcome::Failed
 		}
 	}
 }

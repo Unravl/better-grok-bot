@@ -43,13 +43,14 @@ afterEach(async () => {
 	await rm(tmp, { recursive: true, force: true });
 });
 
-function adapter(overrides: { run?: CommandRunner } = {}) {
+function adapter(overrides: { run?: CommandRunner; appLocations?: string[] } = {}) {
 	return createDarwinAdapter({
 		run: overrides.run ?? run,
 		spawn: (argv, opts) => spawned.push({ argv, env: opts.env }),
 		env: { PATH: "/usr/bin" },
 		home: path.join(tmp, "home"),
 		uid: 501,
+		appLocations: overrides.appLocations,
 	});
 }
 
@@ -209,4 +210,30 @@ test("notify never throws", async () => {
 		},
 	});
 	await expect(darwin.notify("t", "b")).resolves.toBeUndefined();
+});
+
+test("locateApp falls through unusable Spotlight results", async () => {
+	const stale = path.join(tmp, "Stale.app");
+	const other = path.join(tmp, "Other.app");
+	const bundle = path.join(tmp, "Grok Bot.app");
+	const asarPath = path.join(bundle, "Contents", "Resources", "app.asar");
+	await mkdir(other);
+	await makeFixtureAsar(path.dirname(asarPath), { version: "0.68.1", renderer: { "index.html": "" }, asarPath });
+	const plist = (appPath: string) => path.join(appPath, "Contents", "Info.plist");
+	const darwin = adapter({
+		appLocations: [],
+		run: async (argv) => {
+			if (argv[0] === "mdfind") return ok(`${stale}\n${other}\n${bundle}\n`);
+			if (argv[0] === "plutil" && argv[5] === plist(other)) return ok(JSON.stringify({ CFBundleIdentifier: "com.other", CFBundleExecutable: "x" }));
+			if (argv[0] === "plutil" && argv[5] === plist(bundle)) return ok(JSON.stringify({ CFBundleIdentifier: "com.anysphere.sand", CFBundleExecutable: "Grok Bot" }));
+			return ok();
+		},
+	});
+	expect((await darwin.locateApp(null)).root).toBe(bundle);
+
+	const none = adapter({
+		appLocations: [],
+		run: async (argv) => (argv[0] === "mdfind" ? ok(`${stale}\n${other}\n`) : ok(JSON.stringify({ CFBundleIdentifier: "com.other", CFBundleExecutable: "x" }))),
+	});
+	await expect(none.locateApp(null)).rejects.toThrow(/Spotlight results were unusable: .*Stale\.app.*; .*expected com\.anysphere\.sand/);
 });

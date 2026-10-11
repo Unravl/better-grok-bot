@@ -1,0 +1,60 @@
+.bgb-chat-search-button {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 9px;
+	border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+	border-radius: 6px;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	font-size: 12px;
+	cursor: pointer;
+}
+
+.bgb-chat-search-button:hover {
+	background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.bgb-chat-search-button:focus-visible,
+.bgb-chat-search-history button:focus-visible {
+	outline: 2px solid currentColor;
+	outline-offset: 2px;
+}
+
+.bgb-chat-search {
+	position: absolute;
+	top: calc(var(--sand-toolbar-height, 38px) + 8px);
+	right: 16px;
+	z-index: 4;
+	width: min(380px, calc(100% - 32px));
+}
+
+.bgb-chat-search > .sand-chat-find {
+	/* Native generated rules have repeated ID specificity. */
+	position: static !important;
+}
+
+.bgb-chat-search-history {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+	padding: 4px 12px 8px;
+	font-size: 11px;
+	opacity: 0.8;
+	border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+	border-radius: 6px;
+	background: Canvas;
+	color: CanvasText;
+}
+
+.bgb-chat-search-history button {
+	border: 0;
+	padding: 2px 4px;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	text-decoration: underline;
+	cursor: pointer;
+}

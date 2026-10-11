@@ -24,12 +24,15 @@ import {
 	HELPER_PROTOCOL,
 	type HelperToAgent,
 	SHUTDOWN_PATH,
+	type SidebarCommand,
+	type SidebarResult,
+	parseSidebarCommand,
 	type ServerFrame,
 } from "../../sdk/index.ts";
 import { BgbError } from "../errors.ts";
 import { type Logger, nullLogger } from "../log.ts";
 import { BGB_VERSION } from "../version.ts";
-import { type Frame, parseFrame, toBridgeError } from "./frame.ts";
+import { type Frame, fromBridgeError, parseFrame, parseSidebarResponse, toBridgeError } from "./frame.ts";
 
 export interface RendererConnection {
 	readonly id: number;
@@ -38,6 +41,7 @@ export interface RendererConnection {
 	readonly appVersion: string;
 	readonly bgbVersion: string;
 	readonly connectedAt: string;
+	readonly capabilities?: readonly ("sidebar-folders")[];
 }
 
 export interface HelperConnection {
@@ -55,6 +59,8 @@ export interface BridgeOptions {
 	handlers: MethodHandlers;
 	hostname?: string;
 	helloTimeoutMs?: number;
+	/** Deterministic deadline seam for addressed sidebar requests only. */
+	sidebarClock?: { setTimeout(callback: () => void, ms: number): unknown; clearTimeout(timer: unknown): void };
 	log?: Logger;
 	/** `welcome.currentBuildKey`. */
 	currentBuildKey?(): string | null;
@@ -76,6 +82,8 @@ export interface Bridge {
 	closeHelper(connectionId: number, code?: number, reason?: string): void;
 	renderers(): RendererConnection[];
 	helpers(): HelperConnection[];
+	/** Sends once to this exact capable renderer; disconnect/timeout never replays a mutation. */
+	requestSidebar(connectionId: number, command: SidebarCommand, timeoutMs?: number): Promise<SidebarResult>;
 	/** Closes every connection (`code`, default 1001) and stops listening. */
 	stop(opts?: { code?: number; reason?: string }): Promise<void>;
 }
@@ -83,6 +91,14 @@ export interface Bridge {
 type SocketData =
 	| { role: "renderer"; id: number; renderer: RendererConnection | null; timer: Timer | null }
 	| { role: "helper"; id: number; helper: HelperConnection };
+
+interface PendingSidebar {
+	socket: ServerWebSocket<SocketData>;
+	operation: SidebarCommand["operation"];
+	resolve(result: SidebarResult): void;
+	reject(error: BgbError): void;
+	timer: unknown;
+}
 
 /** Validates a helper → agent frame (protocol v4 shapes); `null` when malformed or of another protocol. */
 export function parseHelperFrame(frame: Frame): HelperToAgent | null {
@@ -132,6 +148,43 @@ export function startBridge(opts: BridgeOptions): Bridge {
 	const sockets = new Map<number, ServerWebSocket<SocketData>>();
 	let nextId = 1;
 	let stopping = false;
+	let nextSidebarId = 1;
+	const pendingSidebar = new Map<number, PendingSidebar>();
+	const sidebarClock = opts.sidebarClock ?? {
+		setTimeout: (callback: () => void, ms: number): unknown => setTimeout(callback, ms),
+		clearTimeout: (timer: unknown): void => clearTimeout(timer as Timer),
+	};
+
+	const finishSidebar = (id: number): PendingSidebar | undefined => {
+		const entry = pendingSidebar.get(id);
+		if (!entry) return undefined;
+		pendingSidebar.delete(id);
+		sidebarClock.clearTimeout(entry.timer);
+		return entry;
+	};
+
+	const cancelSidebar = (ws: ServerWebSocket<SocketData> | null, message: string): void => {
+		for (const [id, entry] of pendingSidebar) {
+			if (ws !== null && entry.socket !== ws) continue;
+			finishSidebar(id)?.reject(new BgbError("unavailable", `${message}; the operation's outcome is unknown. Check sidebar state before trying another mutation.`));
+		}
+	};
+
+	const handleSidebarResponse = (ws: ServerWebSocket<SocketData>, frame: Frame): void => {
+		if (typeof frame.id !== "number" || !Number.isSafeInteger(frame.id)) return;
+		const entry = pendingSidebar.get(frame.id);
+		// A known request id does not authorize another window (or a replaced socket) to answer it.
+		if (!entry || entry.socket !== ws || sockets.get(ws.data.id) !== ws || stopping) return;
+		const response = parseSidebarResponse(frame);
+		finishSidebar(frame.id);
+		if (!response || (response.ok && response.result.operation !== entry.operation)) {
+			entry.reject(new BgbError("internal", "The renderer returned an invalid sidebar response; the outcome is unknown. Check sidebar state before trying another mutation."));
+		} else if (response.ok) {
+			entry.resolve(response.result);
+		} else {
+			entry.reject(fromBridgeError(response.error));
+		}
+	};
 
 	const sendFrame = (ws: ServerWebSocket<SocketData>, frame: ServerFrame | AgentToHelper): void => {
 		ws.send(JSON.stringify(frame));
@@ -175,6 +228,7 @@ export function startBridge(opts: BridgeOptions): Bridge {
 	): void => {
 		if (data.renderer) {
 			if (frame?.type === "req") void handleRequest(ws, data.renderer, frame);
+			else if (frame?.type === "sidebar.res") handleSidebarResponse(ws, frame);
 			else log.warn(`bridge: ignored a non-request frame from connection ${data.id}`);
 			return;
 		}
@@ -186,12 +240,15 @@ export function startBridge(opts: BridgeOptions): Bridge {
 			ws.close(CLOSE_BAD_TOKEN, "bad token");
 			return;
 		}
-		const { protocol, buildKey, appVersion, bgbVersion } = frame;
+		const { protocol, buildKey, appVersion, bgbVersion, capabilities } = frame;
 		if (
 			protocol !== BRIDGE_PROTOCOL ||
 			typeof buildKey !== "string" ||
 			typeof appVersion !== "string" ||
-			typeof bgbVersion !== "string"
+			typeof bgbVersion !== "string" ||
+			(capabilities !== undefined && (
+				!Array.isArray(capabilities) || capabilities.some((capability) => capability !== "sidebar-folders")
+			))
 		) {
 			ws.close(CLOSE_PROTOCOL_MISMATCH, "protocol mismatch");
 			return;
@@ -204,6 +261,7 @@ export function startBridge(opts: BridgeOptions): Bridge {
 			appVersion,
 			bgbVersion,
 			connectedAt: new Date().toISOString(),
+			...(capabilities === undefined ? {} : { capabilities: Object.freeze(capabilities.includes("sidebar-folders") ? ["sidebar-folders" as const] : []) }),
 		});
 		data.renderer = renderer;
 		sendFrame(ws, {
@@ -285,6 +343,7 @@ export function startBridge(opts: BridgeOptions): Bridge {
 				if (!sockets.delete(data.id)) return;
 				if (data.role === "renderer") {
 					clearTimeout(data.timer ?? undefined);
+					cancelSidebar(ws, "The target renderer disconnected");
 					if (data.renderer) opts.onRendererClose?.(data.renderer);
 				} else {
 					opts.onHelperClose?.(data.helper);
@@ -326,6 +385,29 @@ export function startBridge(opts: BridgeOptions): Bridge {
 			if (ws?.data.role === "helper") ws.close(code, reason);
 		},
 		renderers: () => renderers().map(([, renderer]) => renderer),
+		async requestSidebar(connectionId, value, timeoutMs = 20_000) {
+			const command = parseSidebarCommand(value);
+			if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new BgbError("bad-request", "Sidebar deadline must be positive finite milliseconds");
+			const ws = sockets.get(connectionId);
+			if (
+				stopping || !ws || ws.data.role !== "renderer" || !ws.data.renderer ||
+				ws.data.renderer.buildKey === "cli" || !ws.data.renderer.capabilities?.includes("sidebar-folders")
+			) throw new BgbError("unavailable", "The addressed renderer is not connected or does not support sidebar folders");
+			const id = nextSidebarId++;
+			const { promise, resolve, reject } = Promise.withResolvers<SidebarResult>();
+			const timer = sidebarClock.setTimeout(() => {
+				finishSidebar(id)?.reject(new BgbError("unavailable", `Sidebar request timed out after ${timeoutMs / 1000} s; the operation's outcome is unknown. Check sidebar state before trying another mutation.`));
+			}, timeoutMs);
+			pendingSidebar.set(id, { socket: ws, operation: command.operation, resolve, reject, timer });
+			try {
+				if (ws.send(JSON.stringify({ type: "sidebar.req", id, command } satisfies ServerFrame)) === 0) {
+					throw new Error("The sidebar request could not be sent");
+				}
+			} catch {
+				finishSidebar(id)?.reject(new BgbError("unavailable", "The sidebar request could not be sent; the outcome is unknown. Check sidebar state before trying another mutation."));
+			}
+			return promise;
+		},
 		helpers() {
 			const list: HelperConnection[] = [];
 			for (const ws of sockets.values()) if (ws.data.role === "helper") list.push(ws.data.helper);
@@ -334,6 +416,7 @@ export function startBridge(opts: BridgeOptions): Bridge {
 		async stop({ code = 1001, reason = "agent stopping" } = {}) {
 			if (stopping) return;
 			stopping = true;
+			cancelSidebar(null, "The bridge stopped");
 			const open = [...sockets.values()];
 			for (const ws of open) ws.close(code, reason);
 			// Let close frames (and frames queued before them) flush before the listener goes away.

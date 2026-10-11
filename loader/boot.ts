@@ -1,4 +1,5 @@
 import { appVersionFromUserAgent, RUNTIME_GLOBAL, type BetterGrokBotRuntime, type PluginLogger } from "../sdk/index.ts";
+import { BRAND_CSS } from "./brand.ts";
 import { captureGlobals, createBridgeClient, offlineBridgeClient, type BridgeClient } from "./bridge-client.ts";
 import { systemClock, type Clock } from "./clock.ts";
 import { createHookRegistry } from "./hooks.ts";
@@ -127,9 +128,11 @@ export function boot(options: BootOptions = {}): BetterGrokBotRuntime | undefine
 	const { runtime } = loaded;
 	Object.defineProperty(global, RUNTIME_GLOBAL, { value: runtime, writable: false, enumerable: false, configurable: true });
 
-	styleManager.inject(styles);
+	const brandActive = manifest.plugins.some((plugin) => plugin.id === "bgb-brand" && plugin.state === "active");
+	styleManager.inject(brandActive ? [{ kind: "core", id: "bgb-brand", css: BRAND_CSS }, ...styles] : styles);
 	migrateGrokModsStorage(getLocalStorage(), log);
 	wireBridge({ bridge, store, services, styles: styleManager, manifest, refreshStatus, reload, log });
+	bridge.onSidebarRequest(loaded.executeSidebar);
 	bridge.start();
 
 	if (doc.readyState === "loading") doc.addEventListener("DOMContentLoaded", () => reportSummary(runtime, log), { once: true });

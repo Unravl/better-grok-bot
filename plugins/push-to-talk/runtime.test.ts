@@ -116,7 +116,13 @@ function fakeSession() {
 function setup(platform: Platform = "darwin", stored: Record<string, unknown> = {}) {
 	const keys = fakeKeys();
 	const media = fakeMedia();
-	const services = { keys: keys.service, media: media.service };
+	const services = {
+		keys: keys.service,
+		media: media.service,
+		get mcp(): never {
+			throw new Error("push-to-talk uses no MCP service");
+		},
+	};
 	const ctx: PluginContext = {
 		id: "push-to-talk",
 		log: { info() {}, warn() {}, error() {} },
@@ -228,6 +234,25 @@ describe("music ducking", () => {
 		expect(media.levels).toEqual([0.1, 0.3]);
 		session.emit("message", { type: "response.done" });
 		expect(media.levels).toEqual([0.1, 0.3, 1]);
+	});
+
+	test("pressing again during the release tail returns to the user level until the turn is released again", () => {
+		const { keys, media, plugin, session, startCall } = setup("win32", { musicWhileUserTalks: 30, musicWhileGrokTalks: 10 });
+		startCall();
+		keys.key("AltRight", true);
+		plugin.holdsFrame(new Float32Array(480));
+		now = HOLD_MS;
+		keys.key("AltRight", false);
+		expect(media.levels).toEqual([0.3, 0.1]);
+		now += 50;
+		keys.key("AltRight", true);
+		expect(media.levels).toEqual([0.3, 0.1, 0.3]);
+		now += HOLD_MS;
+		keys.key("AltRight", false);
+		now += TAIL_MS;
+		plugin.holdsFrame(new Float32Array(480));
+		expect(media.levels).toEqual([0.3, 0.1, 0.3, 0.1]);
+		expect(session.sent.map((frame) => frame.type)).toEqual(["input_audio_buffer.commit", "response.create"]);
 	});
 
 	test("the duck level is the lowest active slider, and 1 when nobody talks", () => {

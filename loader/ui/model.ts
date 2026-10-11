@@ -5,6 +5,7 @@ import type { LoaderSnapshot } from "../store.ts";
 export const PERMISSION_MEANINGS: Record<Permission, string> = {
 	keys: "listen to a key while Grok Bot is in the background",
 	media: "lower other apps' volume",
+	mcp: "manage local MCP servers and call their tools",
 };
 
 export interface PluginRowModel {
@@ -16,16 +17,18 @@ export interface PluginRowModel {
 	label: string;
 	description: string;
 	source: PluginSource;
+	/** Shown state: the agent's, or `runtime-failed` when this page saw the plugin fail. */
 	state: PluginState;
-	/** Toggle position: everything but `disabled` counts as turned on. */
+	/** Toggle position, from the agent's state (never the local failure): everything but `disabled` counts as turned on. */
 	enabled: boolean;
 	/** Invalid and other-OS plugins can't be turned on, so their toggle is inert. */
 	canToggle: boolean;
 	/** Community plugins get Update and Uninstall. */
 	community: boolean;
 	granted: Permission[];
-	/** Setting rows: only for active plugins. */
+	/** Setting rows: only for active plugins, from the schema this page loaded (`settings`). */
 	fields: { name: string; field: SettingField }[];
+	/** The settings schema this page runs until reload: the manifest's when it has the plugin, else the agent's. */
 	settings: Record<string, SettingField>;
 }
 
@@ -51,7 +54,9 @@ export function stateText(state: PluginState, errors: readonly string[]): string
  * One row per non-core plugin: from the agent's status when known, else this page's manifest.
  * A plugin this page saw fail at runtime shows `runtime-failed` and its local error, whatever the
  * agent says; the failure is matched by source and id, so an invalid duplicate of the id keeps its
- * own state. Bundled plugins come first, then community and dev plugins, each by name.
+ * own state. Its toggle still follows the agent's state. Settings use the schema this page loaded
+ * (also matched by source and id), so fields a newer build added appear only after reload. Bundled
+ * plugins come first, then community and dev plugins, each by name.
  */
 export function buildPluginRows(
 	agent: readonly PluginStatus[] | null,
@@ -64,6 +69,7 @@ export function buildPluginRows(
 			.map((plugin) => [`${plugin.source}:${plugin.id}`, plugin.errors[plugin.errors.length - 1]]),
 	);
 	const keys = new Map<string, number>();
+	const running = new Map(manifest.map((plugin) => [`${plugin.source}:${plugin.id}`, plugin.settings]));
 	return (agent ?? manifest)
 		.filter((plugin) => plugin.source !== "core")
 		.map((plugin): PluginRowModel => {
@@ -75,7 +81,8 @@ export function buildPluginRows(
 			const localError = localFailures.get(identity);
 			const errors = failedLocally && localError !== undefined ? [localError] : plugin.errors;
 			const detail = stateText(state, errors);
-			const settings = state === "active" ? plugin.settings : {};
+			const schema = running.get(identity) ?? plugin.settings;
+			const settings = state === "active" ? schema : {};
 			return {
 				key: seen === 0 ? identity : `${identity}#${seen}`,
 				id: plugin.id,
@@ -84,12 +91,12 @@ export function buildPluginRows(
 				description: [plugin.description, detail].filter((part) => part !== "").join(" — "),
 				source: plugin.source,
 				state,
-				enabled: state !== "disabled",
-				canToggle: state !== "invalid" && state !== "unsupported-platform",
+				enabled: plugin.state !== "disabled",
+				canToggle: plugin.state !== "invalid" && plugin.state !== "unsupported-platform",
 				community: plugin.source === "community",
 				granted: [...plugin.granted],
 				fields: Object.entries(settings).map(([name, field]) => ({ name, field })),
-				settings: { ...plugin.settings },
+				settings: { ...schema },
 			};
 		})
 		.sort((a, b) => Number(a.source !== "bundled") - Number(b.source !== "bundled") || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));

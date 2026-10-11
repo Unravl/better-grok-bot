@@ -5,11 +5,25 @@ import type { CoreContext } from "../context.ts";
 import { errorMessage } from "../errors.ts";
 import { rendererUrl } from "../paths.ts";
 import type { HookRecord } from "../platform/types.ts";
+import { psQuote } from "../platform/win32.ts";
 import { mutateState, readState } from "../state.ts";
 import { type SetupHost, systemHost } from "./host.ts";
 import { removePathEntry } from "./path-entry.ts";
 
 const HELPER_LABEL = "io.github.unravl.bettergrokbot.helper";
+
+/**
+ * The argv of a detached PowerShell that waits for `pid` to exit, then deletes `dir`. The script is
+ * passed as `-EncodedCommand` (base64 UTF-16LE) and the path as a literal, so nothing shell-parses it.
+ */
+export function deferredDeleteCommand(pid: number, dir: string): string[] {
+	const script = [
+		`Wait-Process -Id ${pid} -ErrorAction SilentlyContinue`,
+		`Remove-Item -LiteralPath ${psQuote(dir)} -Recurse -Force -ErrorAction SilentlyContinue`,
+	].join("; ");
+	const encoded = Buffer.from(script, "utf16le").toString("base64");
+	return ["powershell.exe", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-EncodedCommand", encoded];
+}
 
 /**
  * The record of a hook that `hookStatus` reports active although `state.hook` was lost. Its value is
@@ -28,7 +42,12 @@ function lostHookRecord(ctx: CoreContext, host: SetupHost, url: string): HookRec
 	}
 }
 
-async function removeHook(ctx: CoreContext, host: SetupHost): Promise<void> {
+/**
+ * Removes the hook and clears `state.hook`. With `purge`, a `not-owned` result is only accepted once
+ * the effective hook no longer references this install's URL: a surviving reference keeps the record
+ * and throws, so `DATA` (which that hook still loads) is not deleted.
+ */
+async function removeHook(ctx: CoreContext, host: SetupHost, purge: boolean): Promise<void> {
 	const { paths, platform } = ctx;
 	const url = rendererUrl(paths);
 	let record = (await readState(paths)).hook;
@@ -36,6 +55,11 @@ async function removeHook(ctx: CoreContext, host: SetupHost): Promise<void> {
 		record = lostHookRecord(ctx, host, url);
 	}
 	if (record !== null && (await platform.hookRemove(record)) === "not-owned") {
+		if (purge && (await platform.hookStatus(url, undefined)).state === "active") {
+			throw new Error(
+				`Grok Bot is still hooked to ${url} by an entry Better Grok Bot does not own; remove VITE_DEV_SERVER_URL from it and run uninstall again`,
+			);
+		}
 		host.print("The Grok Bot hook was changed by something else; left it untouched.");
 	}
 	await mutateState(paths, (state) => {
@@ -85,7 +109,7 @@ export async function runUninstall(
 	};
 	await attempt("stop the agent", () => platform.stopAgent(paths));
 	await attempt("remove autostart", () => platform.autostartRemove());
-	await attempt("remove the Grok Bot hook", () => removeHook(ctx, host));
+	await attempt("remove the Grok Bot hook", () => removeHook(ctx, host, opts.purge));
 	if (platform.id === "darwin") await attempt("remove the key helper job", () => removeMacHelper(host));
 	await attempt("remove the PATH entry", () => removePathEntry(ctx, host));
 	if (failures.length > 0) {
@@ -99,7 +123,7 @@ export async function runUninstall(
 	if (opts.purge) {
 		if (platform.id === "win32") {
 			// This exe lives in DATA\bin and can't be deleted while it runs: delete DATA once it has exited.
-			Bun.spawn(["cmd.exe", "/d", "/c", "ping", "127.0.0.1", "-n", "3", ">", "nul", "&", "rmdir", "/s", "/q", paths.root], {
+			Bun.spawn(deferredDeleteCommand(process.pid, paths.root), {
 				cwd: tmpdir(),
 				detached: true,
 				stdio: ["ignore", "ignore", "ignore"],

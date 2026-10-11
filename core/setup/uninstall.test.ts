@@ -9,7 +9,7 @@ import { rendererUrl } from "../paths.ts";
 import type { HookRecord, PlatformAdapter } from "../platform/types.ts";
 import { mutateState, readState } from "../state.ts";
 import { type Call, type FakeHost, fakeHost, recordingAdapter } from "./test-fakes.ts";
-import { runUninstall } from "./uninstall.ts";
+import { deferredDeleteCommand, runUninstall } from "./uninstall.ts";
 
 let root: string;
 let calls: Call[];
@@ -93,4 +93,27 @@ test("without --yes it asks, and does nothing when declined or without a termina
 	expect(await runUninstall(ctx, { purge: false, yes: false }, host)).toBe(1);
 	expect(host.err).toEqual(["bgb: uninstall asks for confirmation; pass --yes to run it without a terminal"]);
 	expect(names()).toEqual([]);
+});
+
+test("--purge keeps DATA and the hook record while a foreign entry still points at this install", async () => {
+	const ctx = await context({ hookRemove: async () => "not-owned", hookStatus: async () => ({ state: "active" }) });
+	const record: HookRecord = { kind: "launchctl", value: rendererUrl(ctx.paths) };
+	await mutateState(ctx.paths, (state) => {
+		state.hook = record;
+	});
+
+	expect(await runUninstall(ctx, { purge: true, yes: true }, host)).toBe(1);
+
+	expect((await readState(ctx.paths)).hook).toEqual(record);
+	expect(existsSync(ctx.paths.root)).toBe(true);
+	expect(host.err.some((line) => line.includes("still hooked to"))).toBe(true);
+});
+
+test("the deferred Windows delete passes the DATA path as a PowerShell literal", () => {
+	const dir = "C:\\Users\\a b\\x&y %USERPROFILE% $env:TEMP it's";
+	const argv = deferredDeleteCommand(4242, dir);
+	expect(argv.slice(0, -1)).toEqual(["powershell.exe", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-EncodedCommand"]);
+	const script = Buffer.from(argv.at(-1) ?? "", "base64").toString("utf16le");
+	expect(script).toContain("Wait-Process -Id 4242");
+	expect(script).toContain(`-LiteralPath 'C:\\Users\\a b\\x&y %USERPROFILE% $env:TEMP it''s' -Recurse`);
 });

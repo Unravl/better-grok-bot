@@ -32,6 +32,7 @@ export interface CommandEnv {
 export const PERMISSION_MEANINGS: Readonly<Record<Permission, string>> = {
 	keys: "listen to a key while Grok Bot is in the background",
 	media: "lower other apps' volume",
+	mcp: "manage MCP servers and run their tools",
 };
 
 /** The installed binary the agent and autostart run: `DATA/bin/bgb[.exe]`, else this binary when compiled. */

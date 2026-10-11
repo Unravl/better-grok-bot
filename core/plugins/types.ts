@@ -13,7 +13,6 @@ export interface LoadedPlugin {
 	definition: PluginDefinition | undefined;
 	/** community, dev */
 	pkg: PluginPackageJson | undefined;
-	dir: string | undefined;
 	runtimeJs: string | undefined;
 	stylesCss: string | undefined;
 	enabled: boolean;

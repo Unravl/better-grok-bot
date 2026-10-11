@@ -3,6 +3,8 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { readAppPackage } from "../app/package.ts";
+import { defaultConfig } from "../config.ts";
+import { writeJsonAtomic } from "../json-file.ts";
 import { dataPaths, ensureDataDir } from "../paths.ts";
 import type { AppInstall } from "../platform/types.ts";
 import { makeFixtureAsar } from "../test/fixtures.ts";
@@ -90,6 +92,9 @@ test("watchData reports config, plugin, theme and dev changes by kind", async ()
 	await ensureDataDir(paths);
 	const devDir = path.join(dir, "dev-plugin");
 	await mkdir(devDir, { recursive: true });
+	const config = defaultConfig();
+	await writeJsonAtomic(paths.config, config);
+	await writeJsonAtomic(paths.devPlugins, { dirs: [] });
 	const batches: ReadonlySet<DataChange>[] = [];
 	const watcher = await watchData(paths, (changes) => batches.push(changes), { debounceMs: 30, devDirs: [devDir] });
 	stops.push(() => watcher.close());
@@ -99,8 +104,9 @@ test("watchData reports config, plugin, theme and dev changes by kind", async ()
 		await write();
 		await waitFor(() => batches.some((batch) => batch.has(kind)), 5_000, `${kind} change`);
 	};
-	await expectChange("config", () => writeFile(paths.config, "{}"));
-	await expectChange("devList", () => writeFile(paths.devPlugins, '{"dirs":[]}'));
+	// Match production's atomic replacements, with distinct contents from the seeded baseline.
+	await expectChange("config", () => writeJsonAtomic(paths.config, { ...config, autoUpdate: false }));
+	await expectChange("devList", () => writeJsonAtomic(paths.devPlugins, { dirs: [devDir] }));
 	await expectChange("plugins", async () => {
 		await mkdir(path.join(paths.plugins, "demo"), { recursive: true });
 		await writeFile(path.join(paths.plugins, "demo", "plugin.json"), "{}");

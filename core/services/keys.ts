@@ -21,13 +21,18 @@ export class KeyWatches {
 	private readonly byConnection = new Map<number, ReadonlySet<string>>();
 	private readonly down = new Set<string>();
 
-	/** Replaces one connection's watched set; true when the union changed. */
-	set(connectionId: number, codes: Iterable<string>): boolean {
+	/**
+	 * Replaces one connection's watched set. `unionChanged`: the helper needs a new `watch` frame;
+	 * `held`: codes this connection just started watching that are down now (owed it a `down:true`).
+	 */
+	set(connectionId: number, codes: Iterable<string>): { unionChanged: boolean; held: string[] } {
 		const before = this.union().join("\n");
+		const previous = this.byConnection.get(connectionId);
 		const next = new Set(codes);
 		if (next.size === 0) this.byConnection.delete(connectionId);
 		else this.byConnection.set(connectionId, next);
-		return this.settle(before);
+		const held = [...next].filter((code) => this.down.has(code) && !previous?.has(code)).sort();
+		return { unionChanged: this.settle(before), held };
 	}
 
 	/** Forgets a closed connection; true when the union changed. */
@@ -80,6 +85,7 @@ export interface KeysStateInput {
 	installing: boolean;
 	/** macOS: the helper LaunchAgent exists. Windows/Linux: unused (the helper runs on demand). */
 	installed: boolean;
+	/** macOS: why the last install failed; shown over the installed files while no helper is connected. */
 	installError: string | null;
 	/** The connected helper's access, or `null` while none has said hello. */
 	access: HelperKeysAccess | null;
@@ -92,15 +98,22 @@ export interface KeysStateInput {
 	lastFailure: string | null;
 }
 
-function fromAccess(access: HelperKeysAccess): ServiceStateInfo<KeysState> {
+/**
+ * The state for a connected helper's key access. "denied" means missing Input Monitoring on macOS;
+ * on Windows/Linux the helper could not install its keyboard hook (it keeps retrying and sends
+ * "granted" once it succeeds).
+ */
+function fromAccess(platform: Platform, access: HelperKeysAccess): ServiceStateInfo<KeysState> {
 	switch (access) {
 		case "granted":
 			return { state: "ready" };
 		case "denied":
-			return {
-				state: "needs-permission",
-				detail: "Allow Better Grok Bot Helper in System Settings → Privacy & Security → Input Monitoring",
-			};
+			return platform === "darwin"
+				? {
+						state: "needs-permission",
+						detail: "Allow Better Grok Bot Helper in System Settings → Privacy & Security → Input Monitoring",
+					}
+				: { state: "error", detail: "the helper could not install its keyboard hook" };
 		case "unsupported":
 			return { state: "unsupported", detail: "the helper cannot watch keys in this session" };
 	}
@@ -111,18 +124,15 @@ export function computeKeysState(input: KeysStateInput): ServiceStateInfo<KeysSt
 	if (input.unsupportedReason !== null) return { state: "unsupported", detail: input.unsupportedReason };
 	if (input.platform === "darwin") {
 		if (input.installing) return { state: "installing" };
-		if (!input.installed) {
-			return input.installError === null
-				? { state: "needs-install" }
-				: { state: "needs-install", detail: `install failed: ${input.installError}` };
-		}
-		if (input.access !== null) return fromAccess(input.access);
+		if (input.access !== null) return fromAccess(input.platform, input.access);
+		if (input.installError !== null) return { state: "needs-install", detail: `install failed: ${input.installError}` };
+		if (!input.installed) return { state: "needs-install" };
 		if (input.helperLost) return { state: "error", detail: "helper disconnected" };
 		return { state: "starting" };
 	}
 	if (input.failures >= input.maxFailures) {
 		return { state: "error", detail: input.lastFailure ?? "the helper failed to start" };
 	}
-	if (input.access !== null) return fromAccess(input.access);
+	if (input.access !== null) return fromAccess(input.platform, input.access);
 	return input.starting ? { state: "starting" } : { state: "ready" };
 }

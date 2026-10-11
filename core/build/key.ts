@@ -1,5 +1,4 @@
 import type { Platform } from "../../sdk/index.ts";
-import { SOURCE_RECORD, hashTree } from "../plugins/package.ts";
 import type { LoadedPlugin } from "../plugins/types.ts";
 
 export interface BuildKeyInput {
@@ -18,13 +17,21 @@ export interface BuildKeyInput {
 	themes: readonly { id: string; enabled: boolean; bytes: Uint8Array | undefined }[];
 }
 
+/** Feeds `<name> <length>\0<text>` (or `<name> -\0`), so adjacent texts can never run into each other. */
+function hashText(hasher: Bun.CryptoHasher, name: string, text: string | undefined): void {
+	if (text === undefined) hasher.update(`${name} -\0`);
+	else hasher.update(`${name} ${text.length}\0${text}`);
+}
+
 /**
  * sha256 over everything that shapes the renderer files or `manifest.json`: BGB version, build format,
  * `EMBED_HASH`, platform, app fingerprint, builds dir, bridge port and token hash; per plugin its id,
- * source, version, enabled flag, pre-build state, grants and errors, plus the definition and embedded
- * assets (core/bundled) or package tree bytes (community/dev); per theme its id, enabled flag and bytes.
+ * source, version, enabled flag, pre-build state, grants and errors, its definition (core/bundled) or
+ * validated `plugin.json` (community/dev), and its runtime and styles text; per theme its id, enabled
+ * flag and bytes. Plugin inputs are the in-memory values discovery read, i.e. exactly what the build
+ * assembles, never a re-read of the plugin's directory.
  */
-export async function computeBuildKey(input: BuildKeyInput): Promise<string> {
+export function computeBuildKey(input: BuildKeyInput): string {
 	const hasher = new Bun.CryptoHasher("sha256");
 	const tokenHash = new Bun.CryptoHasher("sha256").update(input.bridgeToken).digest("hex");
 	hasher.update(
@@ -43,12 +50,10 @@ export async function computeBuildKey(input: BuildKeyInput): Promise<string> {
 				return value;
 			});
 			hasher.update(`definition ${definition}\0`);
-			hasher.update(`runtime ${plugin.runtimeJs ?? "-"}\0styles ${plugin.stylesCss ?? "-"}\0`);
 		}
-		if (plugin.dir !== undefined) {
-			hasher.update(`tree ${plugin.id}\0`);
-			await hashTree(hasher, plugin.dir, new Set([SOURCE_RECORD]));
-		}
+		if (plugin.pkg !== undefined) hasher.update(`package ${JSON.stringify(plugin.pkg)}\0`);
+		hashText(hasher, "runtime", plugin.runtimeJs);
+		hashText(hasher, "styles", plugin.stylesCss);
 	}
 	for (const theme of input.themes) {
 		hasher.update(`theme ${theme.id} ${theme.enabled}\0`);

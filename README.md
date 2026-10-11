@@ -4,7 +4,8 @@ Plugins, themes and hooks for the [Grok Bot](https://x.ai/bot) desktop app on ma
 
 Better Grok Bot (BGB) is a single command-line program, `bgb`, plus a small background agent. You install
 it once, then open Grok Bot the way you always do: BGB loads its plugins and themes into the app and adds a
-**Better Grok Bot** section to **Settings → General**, where you manage everything.
+**Better Grok Bot** section to **Settings → General**, where you manage everything. The app itself is called Better Grok Bot while BGB is installed (window
+title, its own messages, a label in the agents sidebar); the assistant keeps the name Grok Bot.
 
 ## Install
 
@@ -72,6 +73,10 @@ Open Grok Bot → **Settings → General** and scroll to **Better Grok Bot**. Th
 - turn themes on and off (they apply instantly)
 - open the plugins, themes and logs folders
 
+In a bot conversation, click **Search** in the chat header to find previous text. Use the arrows or
+**Enter / Shift+Enter** to jump between highlighted matches; **Escape** closes search. Earlier history
+loads while search is open. Results remain incomplete until loading finishes; a failed load shows a retry button.
+
 Everything is also available from the command line.
 
 | Command | What it does |
@@ -84,6 +89,7 @@ Everything is also available from the command line.
 | `bgb doctor` | Check the install and explain problems |
 | `bgb update [--check]` | Update BGB now |
 | `bgb logs [-f]` | Print or follow the agent log |
+| `bgb [--data-dir <DATA>] mcp sidebar-folders` | Run the built-in Sidebar Folders MCP server over stdio (global flags go before `mcp`) |
 | `bgb plugins [list]` | List plugins and their states |
 | `bgb plugins enable\|disable <id>` | Turn a plugin on or off |
 | `bgb plugins install <path\|url\|github:owner/repo[@tag]> [--yes]` | Install a community plugin |
@@ -104,13 +110,51 @@ Exit codes: 0 ok, 1 error, 2 usage error, 3 `check` found failures.
 |---|---|
 | Output Device | Choose which speaker or headset voice mode plays through (Settings → General → System → Speaker). |
 | Push to Talk | Hold a key to talk in voice calls. With the optional key helper it also works while Grok Bot is in the background, and lowers Spotify/Music while Grok talks. |
+| Sidebar Folders | Drag bots up and down inside sidebar sections (folders) to reorder them. |
 | Startup | Start a voice chat with a chosen bot when Grok Bot starts. |
+| Voice Dock | Keeps the voice-call controls in the sidebar footer, reachable from any bot. |
 | Voice Keepalive | Reconnect voice calls when the line drops instead of hanging up. |
+| Voice MCP | Give voice calls tools from local or remote MCP servers (Settings → General → System → Voice MCP servers). |
+| Weekly Usage | Show your weekly usage as a progress bar above Connect Apps in the sidebar. |
 
 Push to Talk's background key and music ducking need the **key helper**, a small native program you install
 from the Push to Talk settings ("Install key helper"). On macOS it asks for Input Monitoring permission. It
 can only watch modifier, function, lock and media keys. On Linux it needs an X11 session (on Wayland the
 key works while Grok Bot is focused), and music ducking needs `pactl` 16 or newer.
+
+### Voice MCP servers
+
+#### Built-in BGB Sidebar Folders
+
+Setup registers **BGB Sidebar Folders** disabled if absent; it preserves existing enabled choices and never overwrites a user server with the same ID. No command arguments or configuration are needed for this preset, and the compiled BGB binary needs no external runtime.
+
+1. Manually open the updated app, then ensure the **Sidebar Folders** and **Voice MCP** plugins are enabled.
+2. Enable **BGB Sidebar Folders** in **Settings → General → System → Voice MCP servers**.
+3. Start a new voice conversation. These tools never automatically launch the app or agent.
+4. Say “Create a folder called Work,” “Move Cook into Work,” or “Delete Work.” Deleting a folder preserves every bot; bots outside all remaining folders become **Unassigned**. There is no bot-delete tool.
+
+| Tool | Action |
+|---|---|
+| `bgb_list_bots` | Discover bot IDs, names and folder membership |
+| `bgb_list_folders` | Discover folder IDs and names |
+| `bgb_move_bot` | Move a bot to a folder; `folder: null` moves it to Unassigned |
+| `bgb_create_folder` | Create a named folder |
+| `bgb_delete_folder` | Delete only the container; the default `__agents__` section is protected |
+
+Selectors accept IDs or unique normalized exact names, never fuzzy matches. Duplicate names fail with candidates rather than choosing a bot or folder arbitrarily. The app and agent must already be running, with the updated sidebar runtime, a fresh roster and confirmed storage ready for actions. Voice calls target their originating window; a direct external MCP client without window context requires exactly one capable window and fails on multi-window ambiguity.
+
+Actions use the app's native sections with BGB's fallback and await the owned native operation or storage write. A failure, timeout or client reset can leave an **unknown outcome**: inspect current state before retrying. Tools never automatically replay actions. The preset communicates only with the local bridge, but selected bot/folder results still reach the remote voice model.
+
+#### Other servers
+
+Open **Settings → General → System → Voice MCP servers**, then **Add** a named server:
+
+- **stdio:** enter its command, arguments as a JSON array, environment variables as a JSON object, and an optional working directory. Install the command's local runtime first; use an absolute executable path if BGB's agent PATH cannot find it.
+- **Streamable HTTP** or **legacy SSE:** enter the server URL and headers as a JSON object. Authentication uses explicit headers (for example, `Authorization`); OAuth is not supported.
+
+Save leaves a new server **disabled**. **Test connection** works without enabling it: it may start the local command or contact the server and discover tools, but does not execute tools. Explicitly enable the server, then manually rejoin or start a voice call to use its tools. Normal text chat is unchanged.
+
+Enabling a server trusts its tools to act as you **without per-call prompts**. The voice model receives tool schemas and results; voice processing is still remote. Full configurations, including environment variables and authentication headers, are shared by the host in `DATA/mcp.json` with mode `0600`; they are **not encrypted**.
 
 ## Community plugins
 
@@ -122,6 +166,7 @@ plugin asks for:
 |---|---|
 | `keys` | Listen to a key while Grok Bot is in the background |
 | `media` | Lower other apps' volume |
+| `mcp` | Manage MCP servers, start configured commands or contact servers, and use enabled servers' tools |
 
 Writing plugins: [docs/plugins.md](docs/plugins.md). Themes: [docs/themes.md](docs/themes.md).
 
@@ -163,11 +208,12 @@ Better Grok Bot is a trusted-plugin system. **Install only plugins you trust.**
 
 - Plugins run inside Grok Bot with your account and can read anything it shows, including what you type
   there.
-- Permissions are consent prompts, not a sandbox: every plugin runs in the same page, any plugin can read the
-  token BGB's page uses to talk to the agent, and it can call every agent function itself.
-- The agent's hard limits apply to everyone: it offers a fixed set of functions, and background key
-  watching is limited to modifier, function, lock and media keys, so no plugin can stream system-wide
-  typing through BGB.
+- Permissions are consent prompts, not a sandbox: plugins share one JavaScript realm and can read the
+  page's agent bridge token. MCP checks grants by `pluginId`, but a malicious plugin can impersonate a
+  granted ID.
+- Background key watching is limited to modifier, function, lock and media keys; BGB's key service does
+  not stream system-wide typing. MCP deliberately allows configured host commands to run with your user
+  rights, and enabled tools can perform actions locally or remotely without per-call prompts.
 - `bgb plugin build` and `bgb dev` run plugin source code on your computer with your user rights.
 - The global `VITE_DEV_SERVER_URL` variable on macOS and Windows (see above).
 

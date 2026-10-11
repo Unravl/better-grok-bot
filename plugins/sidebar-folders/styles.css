@@ -1,0 +1,46 @@
+/* Insertion line while dragging a bot inside a sidebar section (folder). */
+.bgb-sidebar-folders__drop-line {
+	position: fixed;
+	z-index: 2147483000;
+	height: 2px;
+	margin-top: -1px;
+	border-radius: var(--cursor-radius-full, 9999px);
+	background-color: var(--cursor-bg-blue-primary);
+	pointer-events: none;
+}
+
+/* "New folder" menu on empty sidebar space, styled like the app's context menus. */
+.bgb-sidebar-folders__menu {
+	position: fixed;
+	z-index: 2147483000;
+	display: flex;
+	flex-direction: column;
+	min-width: 160px;
+	padding: 4px;
+	border: 1px solid var(--cursor-stroke-secondary, rgba(128, 128, 128, 0.2));
+	border-radius: var(--cursor-radius-lg, 8px);
+	background-color: var(--cursor-bg-elevated);
+	box-shadow: var(--cursor-box-shadow-popup);
+	font-family: var(--cursor-font-family-sans);
+}
+
+.bgb-sidebar-folders__menu-item {
+	display: flex;
+	align-items: center;
+	height: 28px;
+	padding: 0 8px;
+	border: 0;
+	border-radius: var(--cursor-radius-base, 6px);
+	background: transparent;
+	color: var(--cursor-text-primary);
+	font: inherit;
+	font-size: var(--cursor-font-size-base, 13px);
+	text-align: start;
+	cursor: default;
+	outline: none;
+}
+
+.bgb-sidebar-folders__menu-item:hover,
+.bgb-sidebar-folders__menu-item:focus-visible {
+	background-color: var(--cursor-bg-tertiary);
+}

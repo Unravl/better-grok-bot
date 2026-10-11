@@ -1,6 +1,6 @@
 /**
  * Handlers for every bridge method (Step 4.2). They validate params, delegate to the build engine,
- * plugins, themes, config, services and self-update, and throw `BgbError` for bridge error codes.
+ * plugins, themes, config, services and self-update, and throw typed errors for bridge error codes.
  * Methods that change plugins, themes or settings return once the change is in `DATA`; the rebuild
  * they trigger reports through `build.started`/`build.finished`.
  */
@@ -10,17 +10,22 @@ import {
 	type BridgeMethod,
 	type BridgeMethods,
 	type InspectResult,
+	type McpService,
 	PERMISSIONS,
 	type Permission,
+	type SidebarCommand,
+	type SidebarResult,
 	type UpdateStatus,
 	isReservedPluginId,
 	isValidPluginId,
+	parseSidebarCommand,
 } from "../../sdk/index.ts";
 import type { CoreOps } from "../agent/ops.ts";
 import { type Config, mutateConfig, readConfig } from "../config.ts";
 import type { CoreContext } from "../context.ts";
 import { BgbError } from "../errors.ts";
 import { CORE_HOOKS } from "../hooks/index.ts";
+import { parseMcpArguments, parseMcpServerConfig } from "../mcp-config.ts";
 import type { MethodHandlers, RendererConnection } from "./server.ts";
 
 export interface MethodDeps {
@@ -37,6 +42,11 @@ export interface MethodDeps {
 		duck(connectionId: number, level: unknown): void;
 		install(): Promise<void>;
 	};
+	sidebar: {
+		renderers(): RendererConnection[];
+		requestSidebar(connectionId: number, command: SidebarCommand): Promise<SidebarResult>;
+	};
+	mcp: McpService;
 	checkUpdate(): Promise<UpdateStatus>;
 	/** Resolves once installed (the agent restarts right after answering); throws on failure. */
 	applyUpdate(): Promise<void>;
@@ -76,6 +86,19 @@ function toggled(list: readonly string[], id: string, present: boolean): string[
 
 export function createMethodHandlers(deps: MethodDeps): MethodHandlers {
 	const { ctx, ops } = deps;
+	const requireMcp = async (params: Params): Promise<void> => {
+		const id = stringParam(params, "pluginId");
+		if (!isValidPluginId(id)) throw new BgbError("bad-request", "pluginId must be a valid plugin id");
+		const [config, status] = await Promise.all([readConfig(ctx.paths), deps.status()]);
+		const plugin = status.plugins.find((candidate) => candidate.id === id);
+		if (!plugin || plugin.state !== "active" || config.disabledPlugins.includes(id) || !plugin.permissions.includes("mcp")) {
+			throw new BgbError("permission-denied", "MCP requires an active, enabled plugin declaring the mcp permission");
+		}
+		const granted = plugin.source === "core" || plugin.source === "bundled"
+			? plugin.granted
+			: config.grants[id] ?? [];
+		if (!granted.includes("mcp")) throw new BgbError("permission-denied", "Plugin does not have the mcp grant");
+	};
 	const handlers: { [M in BridgeMethod]: Handler<M> } = {
 		"status.get": () => deps.status(),
 
@@ -191,6 +214,71 @@ export function createMethodHandlers(deps: MethodDeps): MethodHandlers {
 		"media.duck": async (params, connection) => {
 			deps.services.duck(connection.id, params.level);
 			return {};
+		},
+
+		"sidebar.execute": async (params, connection) => {
+			if (Object.keys(params).some((key) => key !== "command" && key !== "rendererConnectionId")) {
+				throw new BgbError("bad-request", "sidebar.execute accepts only command and rendererConnectionId");
+			}
+			const command = parseSidebarCommand(params.command);
+			const rendererConnectionId = params.rendererConnectionId;
+			if (Object.hasOwn(params, "rendererConnectionId") && (
+				typeof rendererConnectionId !== "number" || !Number.isSafeInteger(rendererConnectionId) || rendererConnectionId <= 0
+			)) {
+				throw new BgbError("bad-request", "rendererConnectionId must be a positive safe integer");
+			}
+			if (connection.buildKey !== "cli" && rendererConnectionId !== undefined && rendererConnectionId !== connection.id) {
+				throw new BgbError("permission-denied", "A renderer can address only its own sidebar connection");
+			}
+			const [config, status] = await Promise.all([readConfig(ctx.paths), deps.status()]);
+			if (config.disabledPlugins.includes("sidebar-folders") || !status.plugins.some((plugin) => plugin.id === "sidebar-folders" && plugin.state === "active")) {
+				throw new BgbError("permission-denied", "Sidebar operations require the active, enabled sidebar-folders plugin");
+			}
+			const candidates = deps.sidebar.renderers().filter((renderer) => renderer.buildKey !== "cli" && renderer.capabilities?.includes("sidebar-folders"));
+			const targetId = connection.buildKey === "cli" ? rendererConnectionId : connection.id;
+			if (targetId === undefined && candidates.length > 1) {
+				throw new BgbError("conflict", "Multiple capable sidebar renderers are connected; invoke from the intended window or keep only one capable window connected", { candidates });
+			}
+			const target = targetId === undefined ? candidates[0] : candidates.find((renderer) => renderer.id === targetId);
+			if (!target) throw new BgbError("unavailable", "The requested sidebar renderer is not connected or does not support sidebar-folders");
+			return deps.sidebar.requestSidebar(target.id, command);
+		},
+
+		"mcp.list": async (params) => {
+			await requireMcp(params);
+			return { servers: await deps.mcp.list() };
+		},
+
+		"mcp.save": async (params) => {
+			await requireMcp(params);
+			await deps.mcp.save(parseMcpServerConfig(params.server));
+			return {};
+		},
+
+		"mcp.remove": async (params) => {
+			await requireMcp(params);
+			await deps.mcp.remove(stringParam(params, "id"));
+			return {};
+		},
+
+		"mcp.connect": async (params) => {
+			await requireMcp(params);
+			return deps.mcp.connect(stringParam(params, "id"));
+		},
+
+		"mcp.tools": async (params) => {
+			await requireMcp(params);
+			return { tools: await deps.mcp.tools() };
+		},
+
+		"mcp.call": async (params, connection) => {
+			await requireMcp(params);
+			return deps.mcp.call(
+				stringParam(params, "serverId"),
+				stringParam(params, "name"),
+				parseMcpArguments(params.arguments),
+				{ rendererConnectionId: connection.id },
+			);
 		},
 	};
 	return handlers;

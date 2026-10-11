@@ -29,11 +29,18 @@ export function wireBridge(options: WiringOptions): void {
 		options.refreshStatus().catch((error: unknown) => log.warn(`could not read the agent status: ${describeError(error)}`));
 	};
 
+	// Bumped by every theme snapshot applied and every request issued; a `themes.styles` response
+	// applies only if nothing newer happened since its request, so it never reverts a live change.
+	let themeGeneration = 0;
+
 	const reconnect = (welcome: WelcomeFrame): void => {
 		refresh();
 		services.resync();
+		const requested = ++themeGeneration;
 		bridge.request("themes.styles", {}).then(
-			({ styles: themes }) => styles.replaceThemes(themes),
+			({ styles: themes }) => {
+				if (requested === themeGeneration) styles.replaceThemes(themes);
+			},
 			(error: unknown) => log.warn(`could not read the theme styles: ${describeError(error)}`),
 		);
 		if (welcome.currentBuildKey !== null) store.setCurrentBuildKey(welcome.currentBuildKey);
@@ -51,7 +58,10 @@ export function wireBridge(options: WiringOptions): void {
 		if (finished.ok) store.setCurrentBuildKey(finished.buildKey);
 		refresh();
 	});
-	bridge.on("themes.changed", ({ styles: themes }) => styles.replaceThemes(themes));
+	bridge.on("themes.changed", ({ styles: themes }) => {
+		themeGeneration++;
+		styles.replaceThemes(themes);
+	});
 	bridge.on("update.status", (update) => store.setUpdate(update));
 	bridge.on("bridge.moving", () => store.markMoved());
 	bridge.on("dev.reload", () => {

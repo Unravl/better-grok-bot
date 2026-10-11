@@ -156,6 +156,14 @@ test("an HTML reference to a missing file fails the build", async () => {
 	expect((await readdir(t.ctx.paths.builds)).filter((name) => name.startsWith(".tmp-"))).toEqual([]);
 });
 
+test("an app version that would place the build outside DATA/builds fails before anything is written", async () => {
+	await useApp("../../escaped", renderer("AAA"));
+	await expect(build(t.ctx)).rejects.toThrow("has an invalid version");
+	expect((await readdir(t.dir)).filter((name) => name.startsWith("escaped"))).toEqual([]);
+	expect(existsSync(t.ctx.paths.builds) ? await readdir(t.ctx.paths.builds) : []).toEqual([]);
+	expect(existsSync(t.ctx.paths.current)).toBe(false);
+});
+
 test("community plugins are patched, injected and listed with every other plugin", async () => {
 	await useApp("0.68.1", renderer("AAA"));
 	const pkg = await writePackage(
@@ -196,6 +204,7 @@ test("community plugins are patched, injected and listed with every other plugin
 		["bgb-react", "core", "patch-failed"],
 		["bgb-settings", "core", "patch-failed"],
 		["bgb-client", "core", "patch-failed"],
+		["bgb-brand", "core", "patch-failed"],
 		...bundled.map((def) => [def.id, "bundled", (def.patches ?? []).length > 0 ? "patch-failed" : "active"]),
 		["broken", "community", "invalid"],
 		["demo", "community", "active"],

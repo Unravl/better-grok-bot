@@ -572,7 +572,7 @@ func disconnected(_ task: URLSessionTask, _ reason: String) {
 	if !watched.isEmpty {
 		watched = [:]
 		chorded = []
-		updateTap()
+		setTap(enabled: false)
 	}
 	setDuck(nil)
 	scheduleReconnect()
@@ -645,6 +645,9 @@ func handleMessage(_ data: Data) {
 /// without events; added codes start up, except modifiers, which take the current hardware state
 /// (reported as `key down` when held). Codes outside `HELPER_CODES.darwin` are ignored.
 func replaceWatch(_ codes: [String]) {
+	// Listen before sampling held modifiers: the tap callback runs on this (main) run loop, so a
+	// release after the sample is handled once this returns instead of being missed.
+	if codes.contains(where: { keyCodeForCode[$0] != nil }) { setTap(enabled: true) }
 	var next: [String: Bool] = [:]
 	for code in codes where next[code] == nil {
 		guard let keyCode = keyCodeForCode[code] else { continue }
@@ -661,7 +664,7 @@ func replaceWatch(_ codes: [String]) {
 	chorded = chorded.filter { next[$0] == true }
 	watched = next
 	log(next.isEmpty ? "watching no keys" : "watching \(next.keys.sorted().joined(separator: ", "))")
-	updateTap()
+	if next.isEmpty { setTap(enabled: false) }
 }
 
 // MARK: - Key events
@@ -731,10 +734,8 @@ let tapCallback: CGEventTapCallBack = { _, type, event, _ in
 	return Unmanaged.passUnretained(event)
 }
 
-func updateTap() {
-	guard let tap = eventTap else { return }
-	let want = !watched.isEmpty
-	if want == tapEnabled { return }
+func setTap(enabled want: Bool) {
+	guard let tap = eventTap, want != tapEnabled else { return }
 	CGEvent.tapEnable(tap: tap, enable: want)
 	tapEnabled = want
 	log("event tap \(want ? "enabled" : "disabled")")
@@ -765,7 +766,11 @@ func acquireAccess(startedAt: Date) {
 		hasAccess = true
 		log("Input Monitoring access granted; event tap ready")
 		send(["type": "access", "keys": "granted"])
-		updateTap()
+		if !watched.isEmpty {
+			setTap(enabled: true)
+			// Watched modifiers were sampled while no tap listened; resync now that events arrive.
+			reconcileKeyStates()
+		}
 		return
 	}
 	if Date().timeIntervalSince(startedAt) >= accessGiveUpAfter {

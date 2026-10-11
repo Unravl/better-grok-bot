@@ -68,13 +68,7 @@ impl X11Keys {
 
 	pub fn watch(&self, codes: &[&'static str]) {
 		// Linux reports no reliable per-key hardware state here: added modifiers start up.
-		let (events, was_empty, is_empty) = {
-			let mut set = self.keys.lock();
-			let was_empty = set.is_empty();
-			let events = set.replace(codes, |_| false);
-			(events, was_empty, set.is_empty())
-		};
-		self.keys.emit(events);
+		let (was_empty, is_empty) = self.keys.replace(codes, |_| false);
 		if was_empty != is_empty {
 			if let Err(error) = self.select(!is_empty) {
 				self.log.error(&format!(

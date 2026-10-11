@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { type FileHandle, mkdir, open, rename, rm, writeFile } from "node:fs/promises";
 import * as path from "node:path";
 import { BgbError } from "./errors.ts";
+import { withOsLock } from "./os-lock.ts";
 import type { DataPaths } from "./paths.ts";
 import { asProcessIdentity, identityAlive, selfIdentity } from "./proc.ts";
 
@@ -19,11 +20,20 @@ export class LockTimeoutError extends Error {
 	}
 }
 
-/** A record file that never became valid JSON is abandoned after this long (a writer died mid-create). */
+/**
+ * A record file that never became valid JSON is abandoned after this long (its writer died mid-create,
+ * or bypassed the guard).
+ */
 const UNPARSABLE_GRACE_MS = 5_000;
 const POLL_MAX_MS = 100;
-/** Reclaim mutexes are held for a few file operations; a holder alive this long is waited out, then reported. */
-const RECLAIM_WAIT_MS = 10_000;
+
+/*
+ * Every mutation of a record file (exclusive create, stale removal, release) runs while holding the OS
+ * lock on `<file>.guard` (see `withOsLock`), so no claimer can delete or replace a record another one
+ * just wrote, and the kernel frees the guard of a holder that dies. Liveness checks run outside the
+ * guard, on a snapshot: a stale record is removed only if the file is still exactly that snapshot
+ * (same text, inode and mtime) when the guard is held again. Readers need no guard.
+ */
 
 interface RecordSnapshot {
 	text: string;
@@ -60,38 +70,9 @@ async function removeNow(file: string): Promise<void> {
 	await rm(aside, { force: true });
 }
 
-/**
- * Runs `fn` while holding `<file>.reclaim`, the mutex every deletion of `file` happens under: a stale
- * record's reclamation and its owner's release. A record is only ever created while its name is free
- * (`wx`), so under this mutex `file` changes only by the holder's own hand; a check made under it still
- * holds when the holder acts. The mutex is itself a record file, so a reclaimer that died holding it is
- * reclaimed the same way, under `<file>.reclaim.reclaim`.
- */
-async function withReclaimMutex<T>(file: string, fn: () => Promise<T>): Promise<T> {
-	const mutex = `${file}.reclaim`;
-	const text = JSON.stringify({ ...(await selfIdentity()), at: new Date().toISOString(), nonce: randomBytes(6).toString("hex") });
-	const deadline = Date.now() + RECLAIM_WAIT_MS;
-	let delay = 2;
-	for (;;) {
-		const result = await claimRecordFile(mutex, text);
-		if (result.claimed) break;
-		if (Date.now() >= deadline) {
-			const pid = typeof result.holder?.pid === "number" ? result.holder.pid : "unknown";
-			throw new Error(`timed out waiting for ${mutex} (held by pid ${pid})`);
-		}
-		await Bun.sleep(delay);
-		delay = Math.min(delay * 2, POLL_MAX_MS);
-	}
-	try {
-		return await fn();
-	} finally {
-		await removeNow(mutex);
-	}
-}
-
 /** Deletes this process's own record `file` while it still holds `text` (a holder's release). */
 export async function releaseRecordFile(file: string, text: string): Promise<void> {
-	await withReclaimMutex(file, async () => {
+	await withOsLock(`${file}.guard`, async () => {
 		if ((await snapshot(file))?.text === text) await removeNow(file);
 	});
 }
@@ -107,39 +88,41 @@ export interface ClaimHooks {
 /**
  * Creates `file` exclusively with `text`. A record whose process is gone (or a fresh pid with another
  * start time), or an unparsable record older than 5 s, is stale and is replaced. Otherwise returns the
- * live holder's parsed record (`undefined` while it is still being written).
- *
- * Reclamation happens under {@link withReclaimMutex} and deletes the record only if it is still the
- * very file judged stale (same text, inode and mtime). Two processes that judged the same record stale
- * therefore never move or delete the fresh record the first of them created.
+ * live holder's parsed record (`undefined` while it is unparsable).
  */
 export async function claimRecordFile(file: string, text: string, hooks: ClaimHooks = {}): Promise<ClaimResult> {
+	let stale: RecordSnapshot | undefined;
 	for (;;) {
-		try {
-			await writeFile(file, text, { flag: "wx" });
-			return { claimed: true };
-		} catch (error) {
-			if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-		}
-		const seen = await snapshot(file);
-		if (seen === undefined) continue;
+		const existing = await withOsLock(`${file}.guard`, async (): Promise<RecordSnapshot | "claimed" | "gone"> => {
+			if (stale) {
+				const current = await snapshot(file);
+				if (current?.text === stale.text && current.ino === stale.ino && current.mtimeMs === stale.mtimeMs) await removeNow(file);
+			}
+			try {
+				await writeFile(file, text, { flag: "wx" });
+				return "claimed";
+			} catch (error) {
+				if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+			}
+			// "gone" only when something bypassing the guard removed it.
+			return (await snapshot(file)) ?? "gone";
+		});
+		if (existing === "claimed") return { claimed: true };
+		if (existing === "gone") continue;
 		let parsed: unknown;
 		try {
-			parsed = JSON.parse(seen.text);
+			parsed = JSON.parse(existing.text);
 		} catch {
 			parsed = undefined;
 		}
 		const identity = asProcessIdentity(parsed);
 		if (identity) {
 			if (await identityAlive(identity)) return { claimed: false, holder: parsed as Record<string, unknown> };
-		} else if (Date.now() - seen.mtimeMs <= UNPARSABLE_GRACE_MS) {
+		} else if (Date.now() - existing.mtimeMs <= UNPARSABLE_GRACE_MS) {
 			return { claimed: false, holder: undefined };
 		}
+		stale = existing;
 		await hooks.judgedStale?.();
-		await withReclaimMutex(file, async () => {
-			const current = await snapshot(file);
-			if (current?.text === seen.text && current.ino === seen.ino && current.mtimeMs === seen.mtimeMs) await removeNow(file);
-		});
 	}
 }
 

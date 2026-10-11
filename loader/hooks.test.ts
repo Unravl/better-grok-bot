@@ -65,6 +65,15 @@ describe("core hook registry", () => {
 		expect(hooks.settingsSection(ui)).toMatchObject({ type: element.type });
 	});
 
+	test("sidebarBrand returns a keyed element once React arrives", () => {
+		const hooks = createHookRegistry({ log: recordingLogger(), createSection: () => () => "section" });
+		expect(hooks.sidebarBrand()).toBeNull();
+		hooks.provideReact(createFakeReact());
+		const element = hooks.sidebarBrand() as FakeElement;
+		expect(element.key).toBe("bgb-brand");
+		expect(hooks.sidebarBrand()).toMatchObject({ type: element.type });
+	});
+
 	test("every hook returns its fallback when its internals throw", () => {
 		const log = recordingLogger();
 		const hooks = createHookRegistry({

@@ -27,6 +27,36 @@ describe("plugin rows", () => {
 		]);
 	});
 
+	test("a locally failed plugin the agent reports disabled renders off and toggles back on", () => {
+		const agent = [pluginStatus({ id: "startup", state: "disabled" })];
+		const local = [pluginStatus({ id: "startup", state: "runtime-failed", errors: ["runtime threw: no client"] })];
+		const [row] = buildPluginRows(agent, [], local);
+		expect(row).toMatchObject({ state: "runtime-failed", description: "runtime threw: no client", enabled: false, canToggle: true });
+	});
+
+	test("settings rows keep the schema this page loaded when the agent reports a newer one", () => {
+		const loaded = { on: { type: "boolean", label: "On", default: true } } as const;
+		const manifest = [pluginStatus({ id: "voice", settings: loaded })];
+		const agent = [pluginStatus({ id: "voice", settings: { ...loaded, level: { type: "number", label: "Level", default: 1, min: 0, max: 2 } } })];
+		const [row] = buildPluginRows(agent, manifest, []);
+		expect(row?.fields.map((field) => field.name)).toEqual(["on"]);
+		expect(row?.settings).toEqual(loaded);
+
+		const [installedLater] = buildPluginRows(agent, [], []);
+		expect(installedLater?.fields.map((field) => field.name)).toEqual(["on", "level"]);
+	});
+
+	test("a duplicate id never takes another source's loaded schema", () => {
+		const loaded = { on: { type: "boolean", label: "On", default: true } } as const;
+		const manifest = [pluginStatus({ id: "voice", source: "bundled", settings: loaded })];
+		const agent = [pluginStatus({ id: "voice", source: "bundled" }), pluginStatus({ id: "voice", source: "community", state: "invalid" })];
+		const rows = buildPluginRows(agent, manifest, []);
+		expect(rows.map((row) => [row.key, row.settings])).toEqual([
+			["bundled:voice", loaded],
+			["community:voice", {}],
+		]);
+	});
+
 	test("hides core hooks; bundled first, then community and dev by name, with source labels", () => {
 		const rows = buildPluginRows(
 			[

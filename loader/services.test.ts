@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createBridgeClient } from "./bridge-client.ts";
+import { BridgeRequestError, createBridgeClient } from "./bridge-client.ts";
 import { createServicesClient } from "./services.ts";
 import { createFakeSockets, FakeClock, fakeGlobals, recordingLogger } from "./test/fakes.ts";
 
@@ -97,5 +97,62 @@ describe("services client", () => {
 		services.resync();
 		expect(socket.lastRequest("keys.watch").params).toEqual({ codes: [] });
 		expect(socket.lastRequest("media.duck").params).toEqual({ level: 1 });
+	});
+
+	test.each(["list", "call"] as const)("MCP %s preserves the host's bridge error and structured data", async (method) => {
+		const { services, socket } = setup();
+		const mcp = services.mcpFor("voice");
+		const pending = (method === "list" ? mcp.list() : mcp.call("local", "lookup", { query: "hello" }))
+			.catch((error: unknown) => error);
+		const data = { pluginId: "voice", permission: "mcp", serverId: "local" };
+		socket.receive({
+			type: "res",
+			id: socket.lastRequest(`mcp.${method}`).id,
+			ok: false,
+			error: { code: "permission-denied", message: "MCP access was revoked", data },
+		});
+		const failure = await pending;
+		expect(failure).toBeInstanceOf(BridgeRequestError);
+		expect(failure).toMatchObject({ code: "permission-denied", message: "MCP access was revoked", data });
+	});
+
+	test("a pending MCP tool call rejects on disconnect without advancing its deadline", async () => {
+		const { services, socket, clock } = setup();
+		const pending = services.mcpFor("voice").call("local", "lookup", {}).catch((error: unknown) => error);
+		socket.drop();
+		const failure = await pending;
+		expect(clock.now()).toBe(0);
+		expect(failure).toBeInstanceOf(BridgeRequestError);
+		expect(failure).toMatchObject({
+			code: "unavailable",
+			message: "the connection to Better Grok Bot's background agent closed",
+		});
+	});
+
+	test("MCP tool calls remain pending beyond 30 seconds and time out at 120 seconds", async () => {
+		const { services, clock } = setup();
+		let settled = false;
+		const pending = services.mcpFor("voice").call("local", "lookup", {}).then(
+			(result) => {
+				settled = true;
+				return result;
+			},
+			(error: unknown) => {
+				settled = true;
+				return error;
+			},
+		);
+		clock.advance(30_001);
+		for (let turn = 0; turn < 10; turn++) await Promise.resolve();
+		expect(settled).toBe(false);
+		clock.advance(89_998);
+		for (let turn = 0; turn < 10; turn++) await Promise.resolve();
+		expect(settled).toBe(false);
+		clock.advance(1);
+		const failure = await pending;
+		expect(clock.now()).toBe(120_000);
+		expect(failure).toBeInstanceOf(BridgeRequestError);
+		expect(failure).toMatchObject({ code: "unavailable" });
+		expect(settled).toBe(true);
 	});
 });

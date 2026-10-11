@@ -14,7 +14,9 @@
  *
  * `report` reads `canary-selected.json`, `compat-<feedPlatform>.json` and `e2e-<feedPlatform>.json`
  * from `--results`, records each entry as `pass`/`fail`/`error`, commits `upstream.json` to
- * `canary-state`, and opens, comments on or closes the `upstream-break` issue of each version.
+ * `canary-state`, and opens, comments on or closes the `upstream-break` issue of each version. Issue
+ * status counts only the entries the feed published at `detect`; entries of superseded commits stay in
+ * the state for the record.
  */
 import { appendFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -29,7 +31,7 @@ const STATE_FILE = "upstream.json";
 const SELECTED_FILE = "canary-selected.json";
 const ISSUE_LABEL = "upstream-break";
 
-interface StateEntry {
+export interface StateEntry {
 	status: EntryStatus;
 	bgbCommit: string;
 	checkedAt: string;
@@ -58,6 +60,8 @@ interface E2eJob extends CompatJob {
 
 interface Selection {
 	bgbCommit: string;
+	/** Keys of every feed entry published at `detect`, tested or not. */
+	current: string[];
 	compat: CompatJob[];
 	e2e: E2eJob[];
 }
@@ -110,11 +114,12 @@ async function detect(args: string[]): Promise<void> {
 	const force = values.force === true;
 	const bgbCommit = (await run(["git", "rev-parse", "HEAD"], { cwd: REPO_ROOT })).stdout.trim();
 	const state = (await fetchState())?.state ?? emptyState();
-	const selection: Selection = { bgbCommit, compat: [], e2e: [] };
+	const selection: Selection = { bgbCommit, current: [], compat: [], e2e: [] };
 
 	for (const feedPlatform of FEED_PLATFORMS) {
 		const entry = await readFeed(feedPlatform);
 		const key = `${feedPlatform}@${entry.version}+${entry.commitSha}`;
+		selection.current.push(key);
 		const previous = state.entries[key];
 		const selected = force || !previous || (previous.status !== "pass" && previous.bgbCommit !== bgbCommit);
 		console.error(`[detect] ${key}: ${previous ? `${previous.status} at ${previous.bgbCommit.slice(0, 7)}` : "new"} → ${selected ? "test" : "skip"}`);
@@ -159,6 +164,18 @@ async function readResult(dir: string, name: string): Promise<unknown> {
 	} catch {
 		return null;
 	}
+}
+
+/**
+ * Keys among `current` (the published feed entries) of upstream `version` whose recorded status is not
+ * `pass`. Entries of commits the feed no longer publishes are ignored, so a superseded failure cannot
+ * keep a version's issue open.
+ */
+export function brokenKeys(entries: Readonly<Record<string, StateEntry>>, current: readonly string[], version: string): string[] {
+	return current.filter((key) => {
+		const entry = entries[key];
+		return key.split("@")[1]?.startsWith(`${version}+`) === true && entry !== undefined && entry.status !== "pass";
+	});
 }
 
 async function gh(args: string[]): Promise<string> {
@@ -249,8 +266,7 @@ async function report(args: string[]): Promise<void> {
 	for (const version of versions) {
 		const title = `Grok Bot ${version} breaks Better Grok Bot`;
 		const merged = { ...base.entries, ...updates };
-		const versionKeys = Object.keys(merged).filter((key) => key.split("@")[1]?.startsWith(`${version}+`));
-		const broken = versionKeys.filter((key) => merged[key]?.status !== "pass");
+		const broken = brokenKeys(merged, selection.current, version);
 		const issue = await findIssue(title);
 		if (broken.length === 0) {
 			summaryLines.push(`- ${version}: pass`);
@@ -307,16 +323,18 @@ async function report(args: string[]): Promise<void> {
 	await summary(`### Canary\n\n${summaryLines.join("\n")}`);
 }
 
-await runMain("canary", async () => {
-	const [command, ...rest] = process.argv.slice(2);
-	switch (command) {
-		case "detect":
-			await detect(rest);
-			return;
-		case "report":
-			await report(rest);
-			return;
-		default:
-			throw new ScriptError("usage: bun scripts/canary.ts detect [--force] | report --results <dir>", 2);
-	}
-});
+if (import.meta.main) {
+	await runMain("canary", async () => {
+		const [command, ...rest] = process.argv.slice(2);
+		switch (command) {
+			case "detect":
+				await detect(rest);
+				return;
+			case "report":
+				await report(rest);
+				return;
+			default:
+				throw new ScriptError("usage: bun scripts/canary.ts detect [--force] | report --results <dir>", 2);
+		}
+	});
+}

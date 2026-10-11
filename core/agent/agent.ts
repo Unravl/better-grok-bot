@@ -15,6 +15,7 @@ import { rendererUrl } from "../paths.ts";
 import { type AppInstall, HookConflictError } from "../platform/types.ts";
 import type { CommandRunner } from "../services/command.ts";
 import { Services, type ServicesOptions } from "../services/index.ts";
+import { McpServers } from "../services/mcp.ts";
 import { type State, mutateState, readState } from "../state.ts";
 import { type UpdateDeps, applyUpdate, checkForUpdate, compareVersions } from "../update/self-update.ts";
 import { BGB_COMPILED, BGB_VERSION } from "../version.ts";
@@ -70,6 +71,7 @@ export class Agent {
 	private readonly release: () => Promise<void>;
 	private readonly scheduler: BuildScheduler;
 	private readonly services: Services;
+	private readonly mcp: McpServers;
 	private readonly done = Promise.withResolvers<number>();
 	private readonly notified = new Set<string>();
 	private config: Config;
@@ -99,6 +101,7 @@ export class Agent {
 		this.config = config;
 		this.release = release;
 		this.scheduler = new BuildScheduler((force) => this.buildOnce(force));
+		this.mcp = new McpServers(ctx);
 		this.services = new Services({
 			...deps.services,
 			paths: ctx.paths,
@@ -140,6 +143,19 @@ export class Agent {
 					pluginsChanged: () => void this.scheduler.request(),
 					rebuild: (force) => void this.scheduler.request(force),
 					services: this.services,
+					sidebar: {
+						renderers: () => {
+							const bridge = this.bridge;
+							if (!bridge || this.stopping) throw new BgbError("unavailable", "The sidebar bridge is not available");
+							return bridge.renderers();
+						},
+						requestSidebar: (connectionId, command) => {
+							const bridge = this.bridge;
+							if (!bridge || this.stopping) throw new BgbError("unavailable", "The sidebar bridge is not available");
+							return bridge.requestSidebar(connectionId, command);
+						},
+					},
+					mcp: this.mcp,
 					checkUpdate: () => this.checkUpdate(),
 					applyUpdate: () => this.installUpdate(),
 				}),
@@ -227,6 +243,7 @@ export class Agent {
 		this.dataWatcher?.close();
 		this.hookWatcher?.close();
 		this.scheduler.stop();
+		await this.mcp.shutdown();
 		await Promise.race([this.scheduler.idle(), Bun.sleep(10_000)]);
 		await this.services.shutdown().catch((error) => ctx.log.error(`services shutdown: ${errorMessage(error)}`));
 		await this.bridge?.stop();

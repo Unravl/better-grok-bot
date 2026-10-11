@@ -34,7 +34,6 @@ function fromDefinition(
 		source,
 		definition: errors.length === 0 ? definition : undefined,
 		pkg: undefined,
-		dir: undefined,
 		runtimeJs: assets.runtimeJs === "" ? undefined : assets.runtimeJs,
 		stylesCss: assets.stylesCss === "" ? undefined : assets.stylesCss,
 		enabled,
@@ -54,7 +53,6 @@ function fromDefinition(
 function fromPackage(
 	id: string,
 	source: Extract<PluginSource, "community" | "dev">,
-	dir: string | undefined,
 	contents: PackageContents | undefined,
 	errors: string[],
 	config: Config,
@@ -69,7 +67,6 @@ function fromPackage(
 		source,
 		definition: undefined,
 		pkg,
-		dir: pkg === undefined ? undefined : dir,
 		runtimeJs: pkg === undefined ? undefined : contents?.runtimeJs,
 		stylesCss: pkg === undefined ? undefined : contents?.stylesCss,
 		enabled,
@@ -87,7 +84,7 @@ function fromPackage(
 }
 
 /**
- * Every plugin in apply order: core hooks (`bgb-react`, `bgb-settings`, `bgb-client`), bundled by id,
+ * Every plugin in apply order: core hooks (`bgb-react`, `bgb-settings`, `bgb-client`, `bgb-brand`), bundled by id,
  * community by id, dev by id. Core hooks are always enabled. A community or dev id equal to a core or
  * bundled id is `invalid` ("id reserved"); a dev id equal to a community id replaces that plugin (with a
  * warning). Core/bundled plugins hold their declared permissions; community/dev plugins hold
@@ -120,11 +117,11 @@ export async function discoverPlugins(ctx: CoreContext, config: Config, platform
 			continue;
 		}
 		const errors = reserved.has(community.id) ? [`id "${community.id}" is reserved`, ...community.errors] : community.errors;
-		plugins.push(fromPackage(community.id, "community", community.dir, community.contents, errors, config, platform));
+		plugins.push(fromPackage(community.id, "community", community.contents, errors, config, platform));
 	}
 	for (const plugin of [...dev].sort((a, b) => compareNames(a.id, b.id))) {
 		const errors = reserved.has(plugin.id) ? [`id "${plugin.id}" is reserved`, ...plugin.errors] : plugin.errors;
-		plugins.push(fromPackage(plugin.id, "dev", plugin.dir, plugin.contents, errors, config, platform));
+		plugins.push(fromPackage(plugin.id, "dev", plugin.contents, errors, config, platform));
 	}
 	return { plugins, warnings };
 }

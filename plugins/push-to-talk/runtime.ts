@@ -473,6 +473,12 @@ export function createPushToTalk(ctx: PluginContext) {
 			clearTimeout(turn.tail ?? undefined);
 			turn.releasedAt = null;
 			turn.tail = null;
+			// The user talks again, so drop the reply wait that release armed (`publish` restores the
+			// "while I talk" level); the next release arms it again.
+			if (turn.heldMs >= MIN_HOLD_MS && !turn.shortcut) {
+				clearTimeout(replyWait ?? undefined);
+				replyWait = null;
+			}
 		}
 		publish();
 	};

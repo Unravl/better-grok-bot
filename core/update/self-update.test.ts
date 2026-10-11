@@ -295,6 +295,41 @@ test("the watchdog restores previous/ when the expected version never reports he
 	}
 });
 
+test("a failed restore keeps update.pending, records manual recovery and notifies distinctly", async () => {
+	const server = await healthServer("0.1.0");
+	try {
+		await mutateConfig(ctx.paths, (config) => {
+			config.bridgePort = server.port ?? 0;
+		});
+		const pending = { version: NEW, previous: "0.1.0", at: new Date().toISOString() };
+		await mutateState(ctx.paths, (state) => {
+			state.update.pending = pending;
+		});
+		await mkdir(ctx.paths.binPrevious, { recursive: true });
+		await writeFile(path.join(ctx.paths.binPrevious, "bgb"), "");
+		const binaries: () => Promise<BinaryOps> = async () => ({
+			stageBinaries: async () => "",
+			commitBinaries: async () => {},
+			restorePrevious: async () => {
+				throw new Error("EACCES: permission denied");
+			},
+		});
+		expect(await runUpdateWatchdog(ctx, { expect: NEW, timeoutS: 0.3 }, { pollMs: 50, binaries })).toBe(0);
+		expect(platform.calls).toEqual([
+			"stopAgent",
+			"startAgent",
+			`notify:Update to ${NEW} failed and 0.1.0 could not be restored; run "bgb doctor" to recover`,
+		]);
+		const state = await readState(ctx.paths);
+		expect(state.update.pending).toEqual(pending);
+		expect(state.update.error).toBe(
+			`${NEW} failed to start and restoring 0.1.0 failed (EACCES: permission denied); ${NEW} may still be installed in ${ctx.paths.bin}; to go back to 0.1.0, run: "${path.join(ctx.paths.binPrevious, "bgb")}" setup --yes`,
+		);
+	} finally {
+		server.stop(true);
+	}
+});
+
 test("the watchdog exits quietly once the expected version is healthy", async () => {
 	const server = await healthServer(NEW);
 	try {

@@ -209,6 +209,77 @@ test("macOS: a download with a wrong checksum fails the install and installs not
 	expect(service.snapshot().keys.detail).toContain("checksum mismatch");
 });
 
+test("macOS: a failed launchctl bootstrap removes the partial install and is reported until a retry succeeds", async () => {
+	let bootstrapFails = true;
+	const run: CommandRunner = async (argv) => {
+		if (argv[0] === "ditto") {
+			const macos = path.join(paths.helpers, HELPER_APP_NAME, "Contents", "MacOS");
+			await mkdir(macos, { recursive: true });
+			await writeFile(path.join(macos, "bgb-helper"), "");
+		}
+		if (argv[1] === "bootstrap" && bootstrapFails) return { code: 5, stdout: "", stderr: "Bootstrap failed: 5: Input/output error" };
+		return { code: 0, stdout: "", stderr: "" };
+	};
+	const service = create("darwin", recordingHost(), { run, env: { BGB_HELPER_PATH: "/opt/Helper.app" } });
+	await service.start();
+	await expect(service.install()).rejects.toThrow("Bootstrap failed");
+	expect(existsSync(path.join(launchAgentsDir, `${HELPER_LABEL}.plist`))).toBe(false);
+	expect(existsSync(path.join(paths.helpers, HELPER_APP_NAME))).toBe(false);
+	expect(existsSync(path.join(paths.helpers, "version.txt"))).toBe(false);
+	expect(service.snapshot()).toEqual({
+		keys: { state: "needs-install", detail: "install failed: launchctl bootstrap failed: Bootstrap failed: 5: Input/output error" },
+		media: { state: "needs-install" },
+	});
+
+	bootstrapFails = false;
+	await service.install();
+	expect(service.snapshot()).toEqual({ keys: { state: "starting" }, media: { state: "ready" } });
+});
+
+test("macOS: a failed reinstall over an installed helper shows the error until the helper connects", async () => {
+	await installMacHelper();
+	const service = create("darwin", recordingHost(), { fetch: async () => new Response("tampered") });
+	await service.start();
+	expect(service.snapshot().keys).toEqual({ state: "starting" });
+	await expect(service.install()).rejects.toThrow("checksum mismatch");
+	expect(service.snapshot().keys.state).toBe("needs-install");
+	expect(service.snapshot().keys.detail).toContain("checksum mismatch");
+	expect(service.snapshot().media).toEqual({ state: "needs-install" });
+
+	service.helperOpened(4);
+	service.helperMessage(4, hello("darwin"));
+	expect(service.snapshot()).toEqual({ keys: { state: "ready" }, media: { state: "ready" } });
+});
+
+test("a renderer that starts watching a held key gets down:true; existing watchers get nothing new", async () => {
+	await installMacHelper();
+	const recorder = recordingHost();
+	const service = create("darwin", recorder);
+	await service.start();
+	service.watchKeys(1, ["AltRight"]);
+	service.helperOpened(100);
+	service.helperMessage(100, hello("darwin"));
+	service.helperMessage(100, { type: "key", code: "AltRight", down: true });
+	expect(recorder.events).toEqual([{ connectionId: 1, event: "keys.key", data: { code: "AltRight", down: true } }]);
+
+	recorder.events.length = 0;
+	service.watchKeys(2, ["AltRight", "ControlLeft"]);
+	expect(recorder.events).toEqual([{ connectionId: 2, event: "keys.key", data: { code: "AltRight", down: true } }]);
+
+	// Re-sending an unchanged watch replays nothing; the duplicate helper frame stays deduplicated.
+	recorder.events.length = 0;
+	service.watchKeys(2, ["AltRight", "ControlLeft"]);
+	service.watchKeys(1, ["AltRight", "F5"]);
+	service.helperMessage(100, { type: "key", code: "AltRight", down: true });
+	expect(recorder.events).toEqual([]);
+
+	service.helperMessage(100, { type: "key", code: "AltRight", down: false });
+	expect(recorder.events).toEqual([
+		{ connectionId: 1, event: "keys.key", data: { code: "AltRight", down: false } },
+		{ connectionId: 2, event: "keys.key", data: { code: "AltRight", down: false } },
+	]);
+});
+
 interface FakeChild {
 	file: string;
 	env: Record<string, string>;
@@ -312,6 +383,31 @@ test("Windows: an active duck starts the helper even without key watches", async
 	expect(recorder.helperFrames).toContainEqual({ connectionId: 2, message: { type: "duck", ducked: true, level: 0.4 } });
 	service.helperMessage(2, { ...hello("win32"), media: false });
 	expect(service.snapshot().media.state).toBe("unsupported");
+});
+
+test("Windows: a helper whose keyboard hook fails reports keys error, then recovers on granted", async () => {
+	const { spawn, children } = fakeSpawner();
+	const recorder = recordingHost(1, "token", (message) => {
+		if (message.type === "quit") for (const child of children) child.exit(0);
+	});
+	const service = create("win32", recorder, { env: { BGB_HELPER_PATH: "C:\\helper.exe" }, spawn });
+	await service.start();
+	service.watchKeys(1, ["AltRight"]);
+	await waitFor(() => children.length === 1, 1_000, "spawn");
+	service.helperOpened(2);
+	service.helperMessage(2, hello("win32"));
+	recorder.helperFrames.length = 0;
+
+	service.helperMessage(2, { type: "access", keys: "denied" });
+	expect(service.snapshot()).toEqual({
+		keys: { state: "error", detail: "the helper could not install its keyboard hook" },
+		media: { state: "ready" },
+	});
+	expect(recorder.helperFrames).toEqual([]);
+
+	service.helperMessage(2, { type: "access", keys: "granted" });
+	expect(service.snapshot().keys).toEqual({ state: "ready" });
+	expect(recorder.helperFrames).toEqual([{ connectionId: 2, message: { type: "watch", codes: ["AltRight"] } }]);
 });
 
 test("Wayland and unpublished helpers make keys unsupported", async () => {

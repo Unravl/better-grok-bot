@@ -1,0 +1,98 @@
+.bgb-voice-mcp {
+	width: 100%;
+	min-width: 0;
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+.bgb-voice-mcp h3 {
+	margin: 0 0 8px;
+	font-size: 15px;
+}
+
+.bgb-voice-mcp p {
+	margin: 8px 0;
+	overflow-wrap: anywhere;
+}
+
+.bgb-voice-mcp-servers {
+	list-style: none;
+	padding: 0;
+	margin: 12px 0;
+}
+
+.bgb-voice-mcp-servers > li,
+.bgb-voice-mcp fieldset {
+	border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+	border-radius: 8px;
+	padding: 12px;
+	margin: 10px 0;
+	min-width: 0;
+}
+
+.bgb-voice-mcp-field {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	margin: 10px 0;
+}
+
+.bgb-voice-mcp input[type="text"],
+.bgb-voice-mcp textarea,
+.bgb-voice-mcp select {
+	box-sizing: border-box;
+	width: 100%;
+	min-width: 0;
+	border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+	border-radius: 5px;
+	background: transparent;
+	color: inherit;
+	padding: 7px 9px;
+	font: inherit;
+}
+
+.bgb-voice-mcp textarea {
+	resize: vertical;
+	font-family: monospace;
+}
+
+.bgb-voice-mcp select option {
+	color: CanvasText;
+	background: Canvas;
+}
+
+.bgb-voice-mcp input[type="checkbox"] {
+	margin-right: 7px;
+}
+
+.bgb-voice-mcp-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-top: 10px;
+}
+
+.bgb-voice-mcp button {
+	border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+	border-radius: 5px;
+	padding: 6px 10px;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+}
+
+.bgb-voice-mcp button:disabled,
+.bgb-voice-mcp fieldset:disabled {
+	opacity: 0.6;
+	cursor: wait;
+}
+
+.bgb-voice-mcp :focus-visible {
+	outline: 2px solid currentColor;
+	outline-offset: 3px;
+}
+
+.bgb-voice-mcp-error {
+	color: light-dark(#a40000, #ff9696);
+}

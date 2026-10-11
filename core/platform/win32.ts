@@ -1,4 +1,4 @@
-import { readdir, stat, symlink, unlink } from "node:fs/promises";
+import { readdir, rename, stat, symlink, unlink } from "node:fs/promises";
 import { homedir } from "node:os";
 import * as path from "node:path";
 import { RENDERER_URL_ENV } from "../../sdk/index.ts";
@@ -56,6 +56,63 @@ export function rootsFromUninstallEntries(json: string): string[] {
 		if (root !== null && !roots.includes(root)) roots.push(root);
 	}
 	return roots;
+}
+
+export interface JunctionOps {
+	symlink(target: string, link: string): Promise<void>;
+	rename(from: string, to: string): Promise<void>;
+	/** Removes a junction without touching its target. */
+	unlink(link: string): Promise<void>;
+	/** Whether `link` resolves to a directory. */
+	isDirectory(link: string): Promise<boolean>;
+}
+
+const junctionOps: JunctionOps = {
+	symlink: (target, link) => symlink(target, link, "junction"),
+	rename,
+	unlink,
+	isDirectory: async (link) => (await stat(link)).isDirectory(),
+};
+
+const ignoreMissing = (error: NodeJS.ErrnoException): void => {
+	if (error.code !== "ENOENT") throw error;
+};
+
+/**
+ * Points the `current` junction at `buildDir` without ever leaving it absent on failure: the new
+ * junction is created and validated at `current.new`, the old one renamed to `current.old` (Windows
+ * rename can't replace a junction), then the new one renamed into place; a failed final rename
+ * restores the old one. Leftovers of a crashed attempt are cleared first.
+ */
+export async function pointCurrentJunction(current: string, buildDir: string, ops: JunctionOps = junctionOps): Promise<void> {
+	const temp = `${current}.new`;
+	const aside = `${current}.old`;
+	await ops.unlink(temp).catch(ignoreMissing);
+	if (!(await ops.isDirectory(current).catch(() => false))) {
+		// No working pointer to protect; a crashed swap may have left the old one aside.
+		await ops.unlink(current).catch(ignoreMissing);
+	}
+	await ops.unlink(aside).catch(ignoreMissing);
+	await ops.symlink(buildDir, temp);
+	try {
+		if (!(await ops.isDirectory(temp))) throw new Error(`${temp} does not resolve to a directory`);
+	} catch (error) {
+		await ops.unlink(temp).catch(() => {});
+		throw error;
+	}
+	let movedAside = true;
+	await ops.rename(current, aside).catch((error: NodeJS.ErrnoException) => {
+		if (error.code !== "ENOENT") throw error;
+		movedAside = false;
+	});
+	try {
+		await ops.rename(temp, current);
+	} catch (error) {
+		if (movedAside) await ops.rename(aside, current);
+		await ops.unlink(temp).catch(() => {});
+		throw error;
+	}
+	if (movedAside) await ops.unlink(aside).catch(() => {});
 }
 
 interface Win32Process {
@@ -231,11 +288,7 @@ export function createWin32Adapter(deps: Win32Deps = {}): PlatformAdapter {
 		},
 
 		async pointCurrent(paths, buildDir) {
-			// unlink removes a directory junction without touching its target.
-			await unlink(paths.current).catch((error: NodeJS.ErrnoException) => {
-				if (error.code !== "ENOENT") throw error;
-			});
-			await symlink(buildDir, paths.current, "junction");
+			await pointCurrentJunction(paths.current, buildDir);
 		},
 
 		async notify(title, body) {

@@ -1,5 +1,6 @@
 import type { Permission } from "./constants.ts";
 import type { BootPayload, BuildManifest, PluginStatus } from "./manifest.ts";
+import type { McpService } from "./mcp.ts";
 import type { SettingField } from "./plugin.ts";
 
 export interface PluginLogger {
@@ -11,7 +12,8 @@ export interface PluginLogger {
 /** JSON values persisted in `localStorage` under `bgb:<pluginId>:<key>`. */
 export interface PluginStorage {
 	get<T>(key: string, fallback: T): T;
-	set(key: string, value: unknown): void;
+	/** Strict writes reject known persistence failures rather than keeping a session-only value. */
+	set(key: string, value: unknown, options?: { requirePersistence?: boolean }): void;
 	/** Fires after `set` in this window and on `storage` events from other windows. */
 	subscribe(key: string, listener: () => void): () => void;
 }
@@ -97,6 +99,7 @@ export interface MediaService {
 export interface PluginServices {
 	readonly keys: KeysService;
 	readonly media: MediaService;
+	readonly mcp: McpService;
 }
 
 export class PermissionError extends Error {
@@ -148,6 +151,10 @@ export interface BetterGrokBotRuntime {
 	provideClient<T>(client: T): T;
 	/** Core hook `bgb-settings`; a React element, or null on any failure; never throws. */
 	settingsSection(ui: UiPrimitives): unknown;
+	/** Core hook `bgb-brand`; the catalog with the messages naming the app renamed, or undefined to keep the app's; never throws. */
+	brandCatalog(messages: unknown): unknown;
+	/** Core hook `bgb-brand`; the sidebar label element, or null; never throws. */
+	sidebarBrand(): unknown;
 }
 
 declare global {

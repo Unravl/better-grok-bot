@@ -1,0 +1,91 @@
+/* "Instructions" editor in the bot info pane's Overview tab; colours, radii and type follow the app's tokens. */
+.bgb-bot-instructions {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	min-width: 0;
+}
+
+.bgb-bot-instructions__header {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.bgb-bot-instructions__title {
+	font-size: var(--cursor-font-size-base, 13px);
+	font-weight: var(--cursor-font-weight-medium, 500);
+	color: var(--cursor-text-primary);
+}
+
+.bgb-bot-instructions__hint,
+.bgb-bot-instructions__status {
+	font-size: var(--cursor-font-size-sm, 12px);
+	color: var(--cursor-text-tertiary);
+}
+
+.bgb-bot-instructions__field {
+	box-sizing: border-box;
+	width: 100%;
+	min-height: 88px;
+	max-height: 320px;
+	padding: 8px 10px;
+	border: 1px solid var(--cursor-stroke-secondary, rgba(128, 128, 128, 0.25));
+	border-radius: var(--cursor-radius-base, 6px);
+	background-color: var(--cursor-bg-secondary);
+	color: var(--cursor-text-primary);
+	font: inherit;
+	font-size: var(--cursor-font-size-base, 13px);
+	line-height: 1.45;
+	resize: vertical;
+	outline: none;
+}
+
+.bgb-bot-instructions__field::placeholder {
+	color: var(--cursor-text-tertiary);
+}
+
+.bgb-bot-instructions__field:focus {
+	border-color: var(--cursor-stroke-accent, var(--cursor-bg-blue-primary));
+}
+
+.bgb-bot-instructions__field:disabled {
+	opacity: 0.6;
+}
+
+.bgb-bot-instructions__footer {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.bgb-bot-instructions__status {
+	flex: 1;
+	min-width: 0;
+}
+
+.bgb-bot-instructions__status[data-error] {
+	color: var(--cursor-text-red-primary);
+}
+
+.bgb-bot-instructions__button {
+	height: 26px;
+	padding: 0 10px;
+	border: 1px solid var(--cursor-stroke-secondary, rgba(128, 128, 128, 0.25));
+	border-radius: var(--cursor-radius-base, 6px);
+	background-color: var(--cursor-bg-tertiary);
+	color: var(--cursor-text-primary);
+	font: inherit;
+	font-size: var(--cursor-font-size-sm, 12px);
+	cursor: default;
+}
+
+.bgb-bot-instructions__button--primary {
+	border-color: transparent;
+	background-color: var(--cursor-bg-accent, var(--cursor-bg-blue-primary));
+	color: var(--cursor-text-invert, #fff);
+}
+
+.bgb-bot-instructions__button:disabled {
+	opacity: 0.5;
+}

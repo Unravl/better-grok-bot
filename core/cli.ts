@@ -23,6 +23,7 @@ Install and run
   doctor                          Check the install and explain problems
   update [--check]                Update Better Grok Bot now
   logs [-f]                       Print (or follow) the agent log
+  mcp sidebar-folders             Serve sidebar folder tools over MCP stdio (voice preset)
 
 Plugins and themes
   plugins [list]                  List plugins and their states
@@ -88,6 +89,8 @@ const COMMANDS: Readonly<Record<string, () => Promise<Command>>> = {
 	plugin: async () => (await import("./commands/author.ts")).runPlugin,
 	dev: async () => (await import("./commands/author.ts")).runDev,
 	config: async () => (await import("./commands/config.ts")).runConfig,
+	// The stdio SDK must stay unloaded for all other CLI commands.
+	mcp: async () => (await import("./commands/mcp.ts")).runMcp,
 	logs: async () => (await import("./commands/logs.ts")).runLogs,
 };
 
@@ -97,7 +100,7 @@ const COMMANDS: Readonly<Record<string, () => Promise<Command>>> = {
  */
 function echoLog(command: string): boolean {
 	if (command === "agent") return process.stderr.isTTY === true;
-	return !["status", "doctor", "logs", "dev", "login", "update-watchdog", "config"].includes(command);
+	return !["mcp", "status", "doctor", "logs", "dev", "login", "update-watchdog", "config"].includes(command);
 }
 
 /** Splits global options (`--data-dir`) from `<command> …args`. */

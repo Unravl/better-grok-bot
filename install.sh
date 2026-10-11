@@ -8,7 +8,9 @@
 #
 # Environment:
 #   BGB_VERSION         release to install (`1.2.3` or `v1.2.3`); default: latest
-#   BGB_SETUP_ARGS      extra arguments for `bgb setup` (e.g. `--no-autostart`)
+#   BGB_SETUP_ARGS      extra `bgb setup` flags, split on spaces (e.g. `--no-autostart`); simple flags
+#                       only, since quotes are not honored; use BGB_APP_PATH for a path
+#   BGB_APP_PATH        Grok Bot install to use, passed as one `--app <path>` argument (may contain spaces)
 #   BGB_NONINTERACTIVE  set to run `bgb setup --yes --no-restart` without prompts
 #   BGB_LOCAL_ARCHIVE + BGB_LOCAL_SUMS  install a local archive instead of downloading (CI)
 set -eu
@@ -84,11 +86,16 @@ tar -xzf "$tmp/$name" -C "$tmp"
 [ -x "$tmp/bgb" ] || die "$name does not contain bgb"
 
 cd "$tmp"
+# The script's own arguments are unused; reuse them as the one array POSIX sh has, so the path stays one word.
+set --
+if [ -n "${BGB_APP_PATH:-}" ]; then
+	set -- --app "$BGB_APP_PATH"
+fi
 # `[ -r /dev/tty ]` passes without a controlling terminal; only an actual open proves one exists.
 if [ -z "${BGB_NONINTERACTIVE:-}" ] && (exec </dev/tty) 2>/dev/null; then
 	# shellcheck disable=SC2086 # BGB_SETUP_ARGS is a word list
-	./bgb setup ${BGB_SETUP_ARGS:-} </dev/tty
+	./bgb setup ${BGB_SETUP_ARGS:-} ${1+"$@"} </dev/tty
 else
 	# shellcheck disable=SC2086 # BGB_SETUP_ARGS is a word list
-	./bgb setup --yes --no-restart ${BGB_SETUP_ARGS:-}
+	./bgb setup --yes --no-restart ${BGB_SETUP_ARGS:-} ${1+"$@"}
 fi

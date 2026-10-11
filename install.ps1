@@ -7,7 +7,9 @@
 #
 # Environment:
 #   BGB_VERSION         release to install (`1.2.3` or `v1.2.3`); default: latest
-#   BGB_SETUP_ARGS      extra arguments for `bgb setup` (e.g. `--no-autostart`)
+#   BGB_SETUP_ARGS      extra `bgb setup` flags, split on spaces (e.g. `--no-autostart`); simple flags
+#                       only, since quotes are not honored; use BGB_APP_PATH for a path
+#   BGB_APP_PATH        Grok Bot install to use, passed as one `--app <path>` argument (may contain spaces)
 #   BGB_NONINTERACTIVE  set to run `bgb setup --yes --no-restart` without prompts
 #   BGB_LOCAL_ARCHIVE + BGB_LOCAL_SUMS  install a local archive instead of downloading (CI)
 
@@ -63,6 +65,11 @@
 		$setupArgs = @()
 		if ($nonInteractive) { $setupArgs += '--yes', '--no-restart' }
 		$setupArgs += @($env:BGB_SETUP_ARGS -split ' ' | Where-Object { $_ })
+		if ($env:BGB_APP_PATH) {
+			# Windows PowerShell quotes an argument with spaces as "..." without escaping a trailing `\`,
+			# which would then escape the closing quote; a directory path does not need it.
+			$setupArgs += '--app', ($env:BGB_APP_PATH -replace '(?<=[^:\\])\\+$', '')
+		}
 		& $bgb setup @setupArgs
 		if ($LASTEXITCODE -ne 0) { throw "bgb setup failed (exit code $LASTEXITCODE)" }
 	} finally {

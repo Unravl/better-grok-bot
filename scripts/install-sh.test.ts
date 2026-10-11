@@ -11,11 +11,11 @@ const assetName = `bgb-${process.platform}-${archOf}.tar.gz`;
 
 let dir: string;
 
-/** A release archive whose `bgb` records its arguments, plus a SHA256SUMS with `sumsEntry`. */
+/** A release archive whose `bgb` records its arguments (one per line), plus a SHA256SUMS with `sumsEntry`. */
 async function fakeRelease(sumsEntry?: (hex: string) => string): Promise<{ archive: string; sums: string; argsFile: string }> {
 	const argsFile = path.join(dir, "args.txt");
 	const bgb = path.join(dir, "bgb");
-	await writeFile(bgb, `#!/bin/sh\nprintf '%s\\n' "$*" > '${argsFile}'\n`);
+	await writeFile(bgb, `#!/bin/sh\nprintf '%s\\n' "$@" > '${argsFile}'\n`);
 	await chmod(bgb, 0o755);
 	const archive = path.join(dir, assetName);
 	const tar = Bun.spawnSync(["tar", "-czf", archive, "-C", dir, "bgb"]);
@@ -49,7 +49,16 @@ describe.skipIf(!posix)("install.sh", () => {
 		const result = install({ BGB_LOCAL_ARCHIVE: archive, BGB_LOCAL_SUMS: sums, BGB_NONINTERACTIVE: "1", BGB_SETUP_ARGS: "--no-autostart --app /x" });
 		expect(result.stderr).toBe("");
 		expect(result.exitCode).toBe(0);
-		expect((await readFile(argsFile, "utf8")).trim()).toBe("setup --yes --no-restart --no-autostart --app /x");
+		expect((await readFile(argsFile, "utf8")).trim().split("\n")).toEqual(["setup", "--yes", "--no-restart", "--no-autostart", "--app", "/x"]);
+	});
+
+	test("passes BGB_APP_PATH as one --app argument even with spaces", async () => {
+		const { archive, sums, argsFile } = await fakeRelease();
+		const app = "/Applications/Grok Bot  Beta.app";
+		const result = install({ BGB_LOCAL_ARCHIVE: archive, BGB_LOCAL_SUMS: sums, BGB_NONINTERACTIVE: "1", BGB_SETUP_ARGS: "--no-autostart", BGB_APP_PATH: app });
+		expect(result.stderr).toBe("");
+		expect(result.exitCode).toBe(0);
+		expect((await readFile(argsFile, "utf8")).trim().split("\n")).toEqual(["setup", "--yes", "--no-restart", "--no-autostart", "--app", app]);
 	});
 
 	test("refuses an archive whose checksum does not match", async () => {

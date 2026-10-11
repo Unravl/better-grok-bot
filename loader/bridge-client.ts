@@ -4,6 +4,10 @@ import {
 	CLOSE_BAD_TOKEN,
 	CLOSE_PROTOCOL_MISMATCH,
 	methodTimeoutMs,
+	SidebarError,
+	isSidebarResult,
+	isSidebarError,
+	parseSidebarCommand,
 	type BridgeErrorCode,
 	type BridgeEvent,
 	type BridgeEvents,
@@ -13,6 +17,9 @@ import {
 	type HelloFrame,
 	type PluginLogger,
 	type RequestFrame,
+	type SidebarCommand,
+	type SidebarResult,
+	type SidebarResponseFrame,
 	type WelcomeFrame,
 } from "../sdk/index.ts";
 import type { Clock } from "./clock.ts";
@@ -55,6 +62,7 @@ const ERROR_CODES: Record<BridgeErrorCode, true> = {
 	unavailable: true,
 	internal: true,
 };
+const SIDEBAR_REQUEST_KEYS: Record<string, true> = { type: true, id: true, command: true };
 
 function isErrorCode(value: unknown): value is BridgeErrorCode {
 	return typeof value === "string" && Object.hasOwn(ERROR_CODES, value);
@@ -81,6 +89,8 @@ export interface BridgeClient {
 	/** Runs after every `welcome`, after state listeners saw `connected`. */
 	onWelcome(listener: (welcome: WelcomeFrame) => void): () => void;
 	on<E extends BridgeEvent>(event: E, listener: (data: BridgeEvents[E]) => void): () => void;
+	/** Fixed sidebar command dispatch only; responses stay on the requesting socket generation. */
+	onSidebarRequest(handler: (command: SidebarCommand) => Promise<SidebarResult>): () => void;
 	/** Rejects with {@link BridgeRequestError}: the agent's error, `unavailable` while not connected, on close, or after the method's deadline. */
 	request<M extends BridgeMethod>(method: M, params: BridgeMethods[M]["params"]): Promise<BridgeMethods[M]["result"]>;
 }
@@ -112,6 +122,8 @@ export function createBridgeClient(options: BridgeClientOptions): BridgeClient {
 	let retryTimer: unknown = null;
 	let welcomeTimer: unknown = null;
 	let nextId = 1;
+	let lastSidebarId = 0;
+	let sidebarHandler: ((command: SidebarCommand) => Promise<SidebarResult>) | null = null;
 	const reportedCloseCodes = new Set<number>();
 	const pending = new Map<number, Pending>();
 	const stateListeners = new Set<(state: BridgeState) => void>();
@@ -199,9 +211,10 @@ export function createBridgeClient(options: BridgeClientOptions): BridgeClient {
 		}
 		socket = ws;
 		welcomed = false;
+		lastSidebarId = 0;
 		ws.onopen = () => {
 			if (socket !== ws) return;
-			const hello: HelloFrame = { type: "hello", protocol: BRIDGE_PROTOCOL, token, buildKey, appVersion, bgbVersion };
+			const hello: HelloFrame = { type: "hello", protocol: BRIDGE_PROTOCOL, token, buildKey, appVersion, bgbVersion, capabilities: ["sidebar-folders"] };
 			try {
 				apply(socketSend, ws, [stringify(hello)]);
 			} catch (error) {
@@ -263,6 +276,44 @@ export function createBridgeClient(options: BridgeClientOptions): BridgeClient {
 		entry.reject(new BridgeRequestError(code, typeof error.message === "string" ? error.message : "request failed", error.data));
 	};
 
+	const executeSidebar = async (ws: WebSocket, frame: Record<string, unknown>): Promise<void> => {
+		const id = frame.id;
+		if (typeof id !== "number" || !Number.isSafeInteger(id) || id <= lastSidebarId) return;
+		// The host sends strictly increasing ids. Duplicates must not execute mutations twice.
+		lastSidebarId = id;
+		let response: SidebarResponseFrame;
+		try {
+			if (Object.keys(frame).some((key) => !Object.hasOwn(SIDEBAR_REQUEST_KEYS, key))) {
+				throw new SidebarError("bad-request", "Invalid sidebar request frame");
+			}
+			const command = parseSidebarCommand(frame.command);
+			const handler = sidebarHandler;
+			if (!handler) throw new SidebarError("unavailable", "This renderer has no sidebar folders handler");
+			const result = await handler(command);
+			if (!isSidebarResult(result) || result.operation !== command.operation) {
+				throw new SidebarError("internal", "The sidebar handler returned an invalid result; the outcome is unknown. Check sidebar state before trying another mutation.");
+			}
+			response = { type: "sidebar.res", id, ok: true, result };
+		} catch (error) {
+			const known = isSidebarError(error) || error instanceof BridgeRequestError;
+			response = {
+				type: "sidebar.res", id, ok: false,
+				error: {
+					code: known ? error.code : "internal",
+					message: known || error instanceof Error ? error.message : String(error),
+					...(known && error.data !== undefined ? { data: error.data } : {}),
+				},
+			};
+		}
+		// Do not answer through a new connection after reconnect, move, stop, or close.
+		if (socket !== ws || !running || !welcomed || ws.readyState !== 1) return;
+		try {
+			apply(socketSend, ws, [stringify(response)]);
+		} catch (error) {
+			log.warn(`cannot answer the sidebar request: ${describeError(error)}`);
+		}
+	};
+
 	/** `bridge.moving`: the agent restarts on `port`; follow it right away with the same token. */
 	const move = (data: unknown): void => {
 		const next = isRecord(data) ? data.port : undefined;
@@ -298,6 +349,8 @@ export function createBridgeClient(options: BridgeClientOptions): BridgeClient {
 		}
 		if (frame.type === "res") {
 			respond(frame);
+		} else if (frame.type === "sidebar.req") {
+			void executeSidebar(ws, frame);
 		} else if (frame.type === "event" && typeof frame.name === "string") {
 			const listeners = eventListeners.get(frame.name);
 			if (listeners !== undefined) notify(listeners, frame.data, `${frame.name} event`);
@@ -339,6 +392,12 @@ export function createBridgeClient(options: BridgeClientOptions): BridgeClient {
 			welcomeListeners.add(listener);
 			return () => {
 				welcomeListeners.delete(listener);
+			};
+		},
+		onSidebarRequest(handler) {
+			sidebarHandler = handler;
+			return () => {
+				if (sidebarHandler === handler) sidebarHandler = null;
 			};
 		},
 		on<E extends BridgeEvent>(event: E, listener: (data: BridgeEvents[E]) => void): () => void {
@@ -392,6 +451,7 @@ export function offlineBridgeClient(): BridgeClient {
 		subscribe: noop,
 		onWelcome: noop,
 		on: noop,
+		onSidebarRequest: noop,
 		request: () => Promise.reject(new BridgeRequestError("unavailable", "this build has no Better Grok Bot agent connection")),
 	});
 }
