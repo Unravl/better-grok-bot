@@ -99,6 +99,7 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.detect.outputs.e2e) }}
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
     defaults:
       run:
         shell: bash

@@ -22,7 +22,7 @@ import { hookedUrl, parseExec, unwrapEnv } from "../core/platform/desktop-entry.
 import { dataPaths, defaultDataDir, rendererUrl } from "../core/paths.ts";
 import { runPowerShell } from "../core/powershell.ts";
 import { BRIDGE_PROTOCOL, type HelloFrame } from "../sdk/index.ts";
-import { mergeEnv, REPO_ROOT, run, runMain, ScriptError } from "./lib.ts";
+import { mergeEnv, REPO_ROOT, run, runMain, ScriptError, TIMED_OUT, within } from "./lib.ts";
 
 // ---------------------------------------------------------------------------------------------
 // Fixed identities (PLAN "Shared contracts")
@@ -76,7 +76,7 @@ function check(condition: boolean, message: string): asserts condition {
 }
 
 async function bgb(args: string[], opts: { allowFail?: boolean; timeoutMs?: number } = {}): Promise<string> {
-	const result = await run([bin, ...args], { allowFail: opts.allowFail, timeoutMs: opts.timeoutMs ?? 300_000 });
+	const result = await run([bin, ...args], { allowFail: opts.allowFail, timeoutMs: opts.timeoutMs ?? 120_000 });
 	return result.stdout;
 }
 
@@ -198,8 +198,26 @@ class Cdp {
 	static async connect(url: string): Promise<Cdp> {
 		const ws = new WebSocket(url);
 		await new Promise<void>((resolve, reject) => {
-			ws.addEventListener("open", () => resolve(), { once: true });
-			ws.addEventListener("error", () => reject(new Error(`could not connect to ${url}`)), { once: true });
+			const timer = setTimeout(() => {
+				ws.close();
+				reject(new Error(`could not connect to ${url} within 10 s`));
+			}, 10_000);
+			ws.addEventListener(
+				"open",
+				() => {
+					clearTimeout(timer);
+					resolve();
+				},
+				{ once: true },
+			);
+			ws.addEventListener(
+				"error",
+				() => {
+					clearTimeout(timer);
+					reject(new Error(`could not connect to ${url}`));
+				},
+				{ once: true },
+			);
 		});
 		return new Cdp(ws);
 	}
@@ -371,6 +389,29 @@ function spawnDetached(cmd: string[], env: Record<string, string | undefined>): 
 	proc.unref();
 }
 
+let launches = 0;
+
+/**
+ * Runs a launcher (`open`, `explorer.exe`, `gtk-launch`) that starts Grok Bot and exits. Its output
+ * goes to files, never to a pipe: the app it starts inherits the launcher's stdout/stderr, so reading
+ * a pipe to end-of-file would wait for the app to quit.
+ */
+async function launch(cmd: string[], opts: { allowFail?: boolean; timeoutMs?: number } = {}): Promise<void> {
+	const base = path.join(tmpdir(), `bgb-e2e-launch-${process.pid}-${++launches}`);
+	const proc = Bun.spawn(cmd, { stdin: "ignore", stdout: Bun.file(`${base}.out`), stderr: Bun.file(`${base}.err`) });
+	const timeoutMs = opts.timeoutMs ?? 60_000;
+	const code = await within(proc.exited, timeoutMs);
+	if (code === TIMED_OUT) proc.kill();
+	if (code !== 0 && (code === TIMED_OUT || !opts.allowFail)) {
+		const output = [await Bun.file(`${base}.err`).text().catch(() => ""), await Bun.file(`${base}.out`).text().catch(() => "")]
+			.map((text) => text.trim())
+			.filter(Boolean)
+			.join("\n");
+		const outcome = code === TIMED_OUT ? `did not exit within ${timeoutMs / 1000} s` : `exited with ${code}`;
+		throw new ScriptError(`${cmd.join(" ")} ${outcome}${output ? `:\n${output}` : ""}`);
+	}
+}
+
 /** Linux: the hooked desktop entry's program and arguments (field codes dropped) plus its URL. */
 async function linuxHookedCommand(): Promise<{ argv: string[]; url: string }> {
 	const text = await readFile(linuxHookFile, "utf8");
@@ -392,10 +433,10 @@ async function linuxHookedCommand(): Promise<{ argv: string[]; url: string }> {
 /** Launches Grok Bot the way a user would, without a debug port. */
 async function normalLaunch(): Promise<void> {
 	if (os === "darwin") {
-		await run(["open", "-a", "Grok Bot"]);
+		await launch(["open", "-a", "Grok Bot"]);
 	} else if (os === "win32") {
 		// explorer.exe exits non-zero even when it launched the program.
-		await run(["explorer.exe", winExe], { allowFail: true });
+		await launch(["explorer.exe", winExe], { allowFail: true });
 		try {
 			await poll("Grok Bot to start from explorer.exe", 20_000, async () => ((await appRunning()) ? true : null));
 		} catch {
@@ -403,7 +444,7 @@ async function normalLaunch(): Promise<void> {
 			spawnDetached([winExe], { [HOOK_ENV]: await windowsUserHookValue() });
 		}
 	} else {
-		await run(["gtk-launch", "grok-bot"]);
+		await launch(["gtk-launch", "grok-bot"]);
 	}
 }
 
@@ -411,7 +452,7 @@ async function normalLaunch(): Promise<void> {
 async function debugLaunch(): Promise<void> {
 	const flag = `--remote-debugging-port=${DEBUG_PORT}`;
 	if (os === "darwin") {
-		await run(["open", "-a", "Grok Bot", "--args", flag]);
+		await launch(["open", "-a", "Grok Bot", "--args", flag]);
 	} else if (os === "win32") {
 		spawnDetached([winExe, flag], { [HOOK_ENV]: await windowsUserHookValue() });
 	} else {
@@ -459,12 +500,15 @@ await runMain("e2e", async () => {
 
 	const failures: string[] = [];
 	let aborted = false;
-	const step = async (name: string, fn: () => Promise<void>, opts: { critical?: boolean } = {}): Promise<boolean> => {
+	/** Runs one check; a throw or its deadline (default 180 s) records a failure instead of ending the run. */
+	const step = async (name: string, fn: () => Promise<void>, opts: { critical?: boolean; timeoutMs?: number } = {}): Promise<boolean> => {
 		if (aborted) return false;
+		const timeoutMs = opts.timeoutMs ?? 180_000;
 		log(`▶ ${name}`);
 		const started = Date.now();
 		try {
-			await fn();
+			// A step past its deadline keeps running in the background; the run moves on regardless.
+			if ((await within(fn(), timeoutMs)) === TIMED_OUT) throw new ScriptError(`step deadline of ${timeoutMs / 1000} s exceeded`);
 			log(`✓ ${name} (${((Date.now() - started) / 1000).toFixed(1)} s)`);
 			return true;
 		} catch (error) {
@@ -499,7 +543,7 @@ await runMain("e2e", async () => {
 				await run(command, { env, inherit: true, timeoutMs: 600_000 });
 				check(existsSync(bin), `${bin} does not exist after the install`);
 			},
-			{ critical: true },
+			{ critical: true, timeoutMs: 660_000 },
 		);
 
 		await step(
@@ -530,21 +574,23 @@ await runMain("e2e", async () => {
 						(await agentHealthy((await readConfigFile()).port)) && (await launchctlGetenv()) === hookUrl ? true : null,
 					);
 				} else {
-					await bgb(["stop"]);
+					await bgb(["stop"], { timeoutMs: 60_000 });
 					await poll("the agent to stop", 20_000, async () => ((await agentHealthy((await readConfigFile()).port)) ? null : true));
 					if (os === "win32") {
 						const command = await runPowerShell(
 							"(Get-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run' -Name 'BetterGrokBot').BetterGrokBot",
 						);
 						check(command.trim() !== "", "the BetterGrokBot Run value is empty");
-						await run(["cmd.exe", "/d", "/s", "/c", `"${command.trim()}"`], { windowsVerbatimArguments: true, timeoutMs: 120_000 });
+						// Captured on purpose: bgbw.exe → `bgb login` → agent must not keep cmd's stdout/stderr open.
+						await run(["cmd.exe", "/d", "/s", "/c", `"${command.trim()}"`], { windowsVerbatimArguments: true, timeoutMs: 60_000 });
 					} else {
 						check(existsSync(linuxAutostartFile), `${linuxAutostartFile} does not exist`);
-						await run(["gio", "launch", linuxAutostartFile], { timeoutMs: 120_000 });
+						// Captured on purpose: `bgb login` → agent must not keep gio's stdout/stderr open.
+						await run(["gio", "launch", linuxAutostartFile], { timeoutMs: 60_000 });
 					}
 					await poll("a healthy agent", 30_000, async () => ((await agentHealthy((await readConfigFile()).port)) ? true : null));
 				}
-			});
+			}, { timeoutMs: 240_000 });
 		}
 
 		await step("4 normal launch", async () => {
@@ -554,13 +600,13 @@ await runMain("e2e", async () => {
 			check(!!key, "status has no build key");
 			await poll(`a renderer on build ${key}`, 90_000, async () => ((await status()).renderers.some((r) => r.buildKey === key) ? true : null), 2_000);
 			await quitApp();
-		});
+		}, { timeoutMs: 300_000 });
 
 		await step("5 debug launch", async () => {
 			await quitApp();
 			await debugLaunch();
 			live.cdp = await Cdp.connect(await findPage());
-		});
+		}, { timeoutMs: 240_000 });
 
 		await step("6 runtime state over CDP", async () => {
 			const page = requireCdp();
@@ -621,7 +667,7 @@ await runMain("e2e", async () => {
 			} finally {
 				client.close();
 			}
-		});
+		}, { timeoutMs: 600_000 });
 
 		await step("8 live theme", async () => {
 			const page = requireCdp();
@@ -677,7 +723,7 @@ await runMain("e2e", async () => {
 				const state = keysStateOf(await a.request("status.get", {}));
 				check(state === expected, `keys.state is ${String(state)}, expected ${expected}`);
 			}
-		});
+		}, { timeoutMs: 240_000 });
 
 		await step("10 port move", async () => {
 			const a = live.clientA;
@@ -715,7 +761,7 @@ await runMain("e2e", async () => {
 			if (expectHelper) {
 				await poll("the idle helper to exit", 75_000, async () => ((await helperRunning()) ? null : true), 2_000);
 			}
-		});
+		}, { timeoutMs: 480_000 });
 
 		await step("11 restart a running app", async () => {
 			live.cdp?.close();
@@ -725,7 +771,7 @@ await runMain("e2e", async () => {
 				const current = await status();
 				return current.app?.running === true && !!current.build && current.renderers.some((r) => r.buildKey === current.build?.key) ? true : null;
 			}, 2_000);
-		});
+		}, { timeoutMs: 300_000 });
 
 		await step("12 uninstall", async () => {
 			await quitApp();
@@ -748,14 +794,17 @@ await runMain("e2e", async () => {
 			const leftovers = (await processNames()).filter((name) => BGB_PROCESS.test(name) || HELPER_PROCESS.test(name));
 			check(leftovers.length === 0, `still running: ${leftovers.join(", ")}`);
 			check(!existsSync(paths.root), `${paths.root} still exists after --purge`);
-		});
+		}, { timeoutMs: 300_000 });
 	} finally {
 		live.cdp?.close();
 		for (const bridge of bridges) bridge.close();
 		if (!live.uninstalled && existsSync(bin)) {
 			log("cleaning up after an aborted run");
-			await quitApp().catch(() => {});
-			await bgb(["uninstall", "--purge", "--yes"], { allowFail: true, timeoutMs: 120_000 }).catch(() => "");
+			const cleanup = (async () => {
+				await quitApp().catch(() => {});
+				await bgb(["uninstall", "--purge", "--yes"], { allowFail: true, timeoutMs: 120_000 }).catch(() => "");
+			})();
+			if ((await within(cleanup, 240_000)) === TIMED_OUT) log("cleanup did not finish within 240 s; giving up on it");
 		}
 		await rm(tmp, { recursive: true, force: true }).catch(() => {});
 	}

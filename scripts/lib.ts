@@ -34,6 +34,7 @@ export interface RunOptions {
 	inherit?: boolean;
 	/** Return the result on a non-zero exit instead of throwing. */
 	allowFail?: boolean;
+	/** Kill the child and throw when it has not exited after this long. */
 	timeoutMs?: number;
 	stdin?: "ignore" | "inherit" | Uint8Array;
 	windowsVerbatimArguments?: boolean;
@@ -45,7 +46,59 @@ export interface RunResult {
 	stderr: string;
 }
 
-/** Spawns `cmd`, waits for it and returns its output; throws on a non-zero exit unless `allowFail`. */
+export const TIMED_OUT: unique symbol = Symbol("timed out");
+
+/** `promise`, or `TIMED_OUT` when it has not settled after `ms`. */
+export async function within<T>(promise: Promise<T>, ms: number): Promise<T | typeof TIMED_OUT> {
+	let timer: Timer | undefined;
+	const expiry = new Promise<typeof TIMED_OUT>((resolve) => {
+		timer = setTimeout(() => resolve(TIMED_OUT), ms);
+	});
+	try {
+		return await Promise.race([promise, expiry]);
+	} finally {
+		clearTimeout(timer);
+	}
+}
+
+/** How long `run` waits after the child exited for its captured output to reach end-of-file. */
+const OUTPUT_DRAIN_MS = 10_000;
+
+interface Capture {
+	/** Settles at end-of-file (or on a read error). */
+	readonly done: Promise<void>;
+	text(): string;
+	cancel(): void;
+}
+
+function capture(stream: unknown): Capture {
+	if (!(stream instanceof ReadableStream)) return { done: Promise.resolve(), text: () => "", cancel: () => {} };
+	const reader = (stream as ReadableStream<Uint8Array>).getReader();
+	const decoder = new TextDecoder();
+	let text = "";
+	const done = (async () => {
+		for (;;) {
+			const chunk = await reader.read();
+			if (chunk.done) break;
+			text += decoder.decode(chunk.value, { stream: true });
+		}
+		text += decoder.decode();
+	})().catch(() => {});
+	return { done, text: () => text, cancel: () => void reader.cancel().catch(() => {}) };
+}
+
+function outputTail(stdout: string, stderr: string): string {
+	const detail = (stderr.trim() || stdout.trim()).split("\n").slice(-20).join("\n");
+	return detail ? `:\n${detail}` : "";
+}
+
+/**
+ * Spawns `cmd`, waits for it and returns its output; throws on a non-zero exit unless `allowFail`.
+ * Never blocks without bound: a child still running after `timeoutMs` is killed (an error), and a
+ * captured stdout/stderr that stays open {@link OUTPUT_DRAIN_MS} after the child exited (a process it
+ * started inherited the pipe) is an error too. Start programs that outlive the call with `Bun.spawn`
+ * and `stdio: "ignore"` (or a log file) instead.
+ */
 export async function run(cmd: readonly string[], opts: RunOptions = {}): Promise<RunResult> {
 	const env = opts.env ? mergeEnv(opts.env) : undefined;
 	const proc = Bun.spawn([...cmd], {
@@ -56,18 +109,29 @@ export async function run(cmd: readonly string[], opts: RunOptions = {}): Promis
 		stderr: opts.inherit ? "inherit" : "pipe",
 		windowsHide: true,
 		windowsVerbatimArguments: opts.windowsVerbatimArguments,
-		timeout: opts.timeoutMs,
 	});
-	const [stdout, stderr, exitCode] = await Promise.all([
-		proc.stdout instanceof ReadableStream ? new Response(proc.stdout).text() : Promise.resolve(""),
-		proc.stderr instanceof ReadableStream ? new Response(proc.stderr).text() : Promise.resolve(""),
-		proc.exited,
-	]);
-	if (exitCode !== 0 && !opts.allowFail) {
-		const detail = (stderr.trim() || stdout.trim()).split("\n").slice(-20).join("\n");
-		throw new ScriptError(`${cmd.join(" ")} exited with ${exitCode}${detail ? `:\n${detail}` : ""}`);
+	const out = capture(proc.stdout);
+	const err = capture(proc.stderr);
+	const label = cmd.join(" ");
+	const exited = opts.timeoutMs === undefined ? await proc.exited : await within(proc.exited, opts.timeoutMs);
+	if (exited === TIMED_OUT) {
+		proc.kill();
+		if ((await within(proc.exited, 5_000)) === TIMED_OUT) proc.kill("SIGKILL");
+		out.cancel();
+		err.cancel();
+		throw new ScriptError(`${label} timed out after ${Math.round((opts.timeoutMs ?? 0) / 1000)} s${outputTail(out.text(), err.text())}`);
 	}
-	return { exitCode, stdout, stderr };
+	if ((await within(Promise.all([out.done, err.done]), OUTPUT_DRAIN_MS)) === TIMED_OUT) {
+		out.cancel();
+		err.cancel();
+		throw new ScriptError(
+			`${label} exited with ${exited}, but its stdout/stderr were still open ${OUTPUT_DRAIN_MS / 1000} s later: a process it started inherited them${outputTail(out.text(), err.text())}`,
+		);
+	}
+	const stdout = out.text();
+	const stderr = err.text();
+	if (exited !== 0 && !opts.allowFail) throw new ScriptError(`${label} exited with ${exited}${outputTail(stdout, stderr)}`);
+	return { exitCode: exited, stdout, stderr };
 }
 
 /** `process.env` overlaid with `extra`; `undefined` values remove a variable. */

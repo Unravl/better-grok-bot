@@ -204,8 +204,10 @@ export function createWin32Adapter(deps: Win32Deps = {}): PlatformAdapter {
 		},
 
 		async autostartInstall(binPath, paths) {
+			// The Run key is absent on fresh profiles (e.g. some CI images) until something registers a value.
 			await powershell(
-				`Set-ItemProperty -Path ${psQuote(RUN_KEY)} -Name ${psQuote(RUN_VALUE_NAME)} -Value ${psQuote(runValueCommand(binPath, paths))}`,
+				`if (-not (Test-Path -LiteralPath ${psQuote(RUN_KEY)})) { New-Item -Path ${psQuote(RUN_KEY)} -Force | Out-Null }; ` +
+					`Set-ItemProperty -Path ${psQuote(RUN_KEY)} -Name ${psQuote(RUN_VALUE_NAME)} -Value ${psQuote(runValueCommand(binPath, paths))}`,
 			);
 		},
 

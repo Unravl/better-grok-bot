@@ -168,6 +168,7 @@ jobs:
             asset: bgb-linux-x64
             archive: bgb-linux-x64.tar.gz
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
     defaults:
       run:
         shell: bash

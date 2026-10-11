@@ -174,6 +174,7 @@ test("autostart Run value", async () => {
 	const paths = dataPaths(path.join(tmp, "BetterGrokBot"));
 	await win.autostartInstall(path.join(paths.bin, "bgb.exe"), paths);
 	expect(scripts.at(-1)).toContain("-Name 'BetterGrokBot'");
+	expect(scripts.at(-1)).toContain("New-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run' -Force");
 	expect(scripts.at(-1)).toContain(`--data-dir "${paths.root}" login`);
 	await win.autostartRemove();
 	expect(scripts.at(-1)).toContain("Remove-ItemProperty");
