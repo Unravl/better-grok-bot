@@ -30,10 +30,12 @@ async function fakeAgent(port: number, ignoreTerm = false): Promise<Bun.Subproce
 	children.push(child);
 	// Wait until the handler is installed before anyone signals it.
 	await child.stdout.getReader().read();
+	const startTime = await processStartTime(child.pid);
+	if (startTime === null) throw new Error("cannot read the fake agent's start time");
 	const record: AgentRecord = {
 		pid: child.pid,
 		bootId: await bootId(),
-		startTime: await processStartTime(child.pid),
+		startTime,
 		version: "0.0.0-test",
 		port,
 		startedAt: new Date().toISOString(),
@@ -100,18 +102,32 @@ test("requestStop replaces the shutdown request", async () => {
 	expect(isAlive(child.pid)).toBe(false);
 });
 
-test("a recorded pid now owned by another process (different start time) is never signaled", async () => {
-	const child = Bun.spawn([process.execPath, "-e", "setInterval(()=>{},1000)"]);
-	children.push(child);
-	const record: AgentRecord = {
-		pid: child.pid,
-		bootId: await bootId(),
-		startTime: Date.now() - 3_600_000,
-		version: "0.0.0-test",
-		port: 1,
-		startedAt: new Date().toISOString(),
-	};
-	await writeFile(paths.agentRecord, JSON.stringify(record));
-	await stopAgentProcess(paths, { gracefulMs: 100, termMs: 100, killMs: 100 });
-	expect(isAlive(child.pid)).toBe(true);
+test("a recorded pid whose start time differs by even 1 ms, or is missing, is never signaled or sent the token", async () => {
+	await ensureConfig(paths);
+	const seen: (string | null)[] = [];
+	const server = Bun.serve({
+		hostname: "127.0.0.1",
+		port: 0,
+		fetch(request) {
+			seen.push(request.headers.get("authorization"));
+			return new Response(null, { status: 202 });
+		},
+	});
+	try {
+		const child = await fakeAgent(server.port ?? 0);
+		const exact = JSON.parse(await Bun.file(paths.agentRecord).text()) as AgentRecord;
+		for (const record of [
+			{ ...exact, startTime: exact.startTime + 1 },
+			{ ...exact, startTime: exact.startTime - 3_600_000 },
+			{ ...exact, startTime: null },
+			{ ...exact, startTime: undefined },
+		]) {
+			await writeFile(paths.agentRecord, JSON.stringify(record));
+			await stopAgentProcess(paths, { gracefulMs: 100, termMs: 100, killMs: 100 });
+			expect(isAlive(child.pid)).toBe(true);
+		}
+		expect(seen).toEqual([]);
+	} finally {
+		server.stop(true);
+	}
 });

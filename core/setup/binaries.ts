@@ -5,6 +5,7 @@ import * as path from "node:path";
 import type { CoreContext } from "../context.ts";
 import { errorMessage } from "../errors.ts";
 import { renameReplacing } from "../json-file.ts";
+import { withBinariesLock } from "../lock.ts";
 import { type ExecResult, execCommand } from "./host.ts";
 
 /** File-moving and process seams of the binary transaction; tests inject failures here. */
@@ -136,34 +137,38 @@ async function discardPrevious(ctx: CoreContext, io: BinariesIo): Promise<void> 
  * 4. runs `bin/bgb --version`; a mismatch moves the new binaries to `bin/.trash-*`, restores
  *    `previous/` and throws.
  * The staging dir is consumed unless rolling back itself fails (then it keeps what could not move back).
+ * Runs under the `binaries` lock (`withBinariesLock`): a concurrent transaction, which would discard the
+ * `previous/` this one is about to create, gets `BgbError("conflict")` instead.
  */
 export async function commitBinaries(ctx: CoreContext, stagedDir: string, io: BinariesIo = systemBinariesIo): Promise<void> {
-	const { bin, binPrevious } = ctx.paths;
-	const names = binaryNames(ctx);
-	const expected = (await readFile(path.join(stagedDir, STAGED_VERSION_FILE), "utf8")).trim();
-	await discardPrevious(ctx, io);
-	await mkdir(binPrevious, { recursive: true });
-	try {
-		await moveTransaction(io, async (move) => {
-			for (const name of names) {
-				if (existsSync(path.join(bin, name))) await move(path.join(bin, name), path.join(binPrevious, name));
-			}
-			for (const name of names) await move(path.join(stagedDir, name), path.join(bin, name));
-		});
-	} catch (error) {
-		if (!(error instanceof RollbackFailedError)) await rm(stagedDir, { recursive: true, force: true });
-		throw error;
-	}
-	await rm(stagedDir, { recursive: true, force: true });
+	await withBinariesLock(ctx.paths, async () => {
+		const { bin, binPrevious } = ctx.paths;
+		const names = binaryNames(ctx);
+		const expected = (await readFile(path.join(stagedDir, STAGED_VERSION_FILE), "utf8")).trim();
+		await discardPrevious(ctx, io);
+		await mkdir(binPrevious, { recursive: true });
+		try {
+			await moveTransaction(io, async (move) => {
+				for (const name of names) {
+					if (existsSync(path.join(bin, name))) await move(path.join(bin, name), path.join(binPrevious, name));
+				}
+				for (const name of names) await move(path.join(stagedDir, name), path.join(bin, name));
+			});
+		} catch (error) {
+			if (!(error instanceof RollbackFailedError)) await rm(stagedDir, { recursive: true, force: true });
+			throw error;
+		}
+		await rm(stagedDir, { recursive: true, force: true });
 
-	const installed = await readVersion(io, path.join(bin, names[0])).catch((error: unknown) => `error: ${errorMessage(error)}`);
-	if (installed !== expected) {
-		await replaceInstalled(ctx, binPrevious, io);
-		await rm(binPrevious, { recursive: true, force: true });
-		throw new Error(`the installed bgb reports "${installed}", expected ${expected}; restored the previous binaries`);
-	}
-	// A first install replaced nothing; an empty `previous/` would only confuse `restorePrevious`.
-	if ((await readdir(binPrevious)).length === 0) await rm(binPrevious, { recursive: true, force: true });
+		const installed = await readVersion(io, path.join(bin, names[0])).catch((error: unknown) => `error: ${errorMessage(error)}`);
+		if (installed !== expected) {
+			await replaceInstalled(ctx, binPrevious, io);
+			await rm(binPrevious, { recursive: true, force: true });
+			throw new Error(`the installed bgb reports "${installed}", expected ${expected}; restored the previous binaries`);
+		}
+		// A first install replaced nothing; an empty `previous/` would only confuse `restorePrevious`.
+		if ((await readdir(binPrevious)).length === 0) await rm(binPrevious, { recursive: true, force: true });
+	});
 }
 
 /**
@@ -190,18 +195,21 @@ async function replaceInstalled(ctx: CoreContext, fromDir: string | null, io: Bi
 
 /**
  * Moves the binaries in `bin/previous/` back into `bin/`, discarding the current ones (the update
- * watchdog's rollback and setup's undo). Throws when `previous/` holds no CLI binary.
+ * watchdog's rollback and setup's undo). Throws when `previous/` holds no CLI binary. Runs under the
+ * `binaries` lock, like {@link commitBinaries}.
  */
 export async function restorePrevious(ctx: CoreContext, io: BinariesIo = systemBinariesIo): Promise<void> {
-	const [main] = binaryNames(ctx);
-	if (!existsSync(path.join(ctx.paths.binPrevious, main))) {
-		throw new Error(`no previous Better Grok Bot binaries in ${ctx.paths.binPrevious}`);
-	}
-	await replaceInstalled(ctx, ctx.paths.binPrevious, io);
-	await rm(ctx.paths.binPrevious, { recursive: true, force: true }).catch(() => undefined);
+	await withBinariesLock(ctx.paths, async () => {
+		const [main] = binaryNames(ctx);
+		if (!existsSync(path.join(ctx.paths.binPrevious, main))) {
+			throw new Error(`no previous Better Grok Bot binaries in ${ctx.paths.binPrevious}`);
+		}
+		await replaceInstalled(ctx, ctx.paths.binPrevious, io);
+		await rm(ctx.paths.binPrevious, { recursive: true, force: true }).catch(() => undefined);
+	});
 }
 
-/** Removes the installed binaries (setup's undo of a first install, which left no `previous/`). */
+/** Removes the installed binaries (setup's undo of a first install, which left no `previous/`), under the `binaries` lock. */
 export async function removeBinaries(ctx: CoreContext, io: BinariesIo = systemBinariesIo): Promise<void> {
-	await replaceInstalled(ctx, null, io);
+	await withBinariesLock(ctx.paths, () => replaceInstalled(ctx, null, io));
 }

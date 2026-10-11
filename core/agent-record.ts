@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { claimRecordFile, removeRecordFileIfUnchanged } from "./lock.ts";
+import { claimRecordFile, releaseRecordFile } from "./lock.ts";
 import type { DataPaths } from "./paths.ts";
 import { type ProcessIdentity, asProcessIdentity, identityAlive, selfIdentity } from "./proc.ts";
 import { BGB_VERSION } from "./version.ts";
@@ -51,7 +51,7 @@ export async function acquireAgentRecord(
 			return {
 				acquired: true,
 				record,
-				release: () => removeRecordFileIfUnchanged(paths.agentRecord, text),
+				release: () => releaseRecordFile(paths.agentRecord, text),
 			};
 		}
 		const owner = asAgentRecord(result.holder);

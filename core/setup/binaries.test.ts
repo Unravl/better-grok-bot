@@ -80,6 +80,31 @@ test("stage + commit installs the binaries and keeps the replaced ones in previo
 	expect((await stat(path.join(ctx.paths.bin, MAIN))).ino).not.toBe(oldIno);
 });
 
+test("a second commit while one is in progress is refused and the first one's previous/ survives", async () => {
+	const oldIno = await installOld();
+	const first = await stageBinaries(ctx, await fakeRelease("first"), Bun.version);
+	const second = await stageBinaries(ctx, await fakeRelease("second"), Bun.version);
+	const verifying = Promise.withResolvers<void>();
+	const finish = Promise.withResolvers<void>();
+	// The first commit stalls at its post-install `--version` check, inside its transaction.
+	const gated: BinariesIo = {
+		...systemBinariesIo,
+		exec: async (argv, opts) => {
+			verifying.resolve();
+			await finish.promise;
+			return systemBinariesIo.exec(argv, opts);
+		},
+	};
+	const committing = commitBinaries(ctx, first, gated);
+	await verifying.promise;
+	await expect(commitBinaries(ctx, second)).rejects.toMatchObject({ code: "conflict" });
+	finish.resolve();
+	await committing;
+	expect((await stat(path.join(ctx.paths.binPrevious, MAIN))).ino).toBe(oldIno);
+	expect(existsSync(second)).toBe(true);
+	expect(await installedVersion()).toBe(Bun.version);
+});
+
 test("stageBinaries rejects a binary reporting another version and leaves no staging dir", async () => {
 	const src = await fakeRelease("new");
 	await expect(stageBinaries(ctx, src, "0.0.0-not-this")).rejects.toThrow(/reports version ".*", expected 0\.0\.0-not-this/);

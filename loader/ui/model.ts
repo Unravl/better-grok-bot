@@ -8,6 +8,8 @@ export const PERMISSION_MEANINGS: Record<Permission, string> = {
 };
 
 export interface PluginRowModel {
+	/** Unique per row (React key): a community or dev plugin may reuse another plugin's id and is then listed as invalid beside it. */
+	key: string;
 	id: string;
 	name: string;
 	/** `name`, plus ` · community` / ` · dev`. */
@@ -48,7 +50,8 @@ export function stateText(state: PluginState, errors: readonly string[]): string
 /**
  * One row per non-core plugin: from the agent's status when known, else this page's manifest.
  * A plugin this page saw fail at runtime shows `runtime-failed` and its local error, whatever the
- * agent says. Bundled plugins come first, then community and dev plugins, each by name.
+ * agent says; the failure is matched by source and id, so an invalid duplicate of the id keeps its
+ * own state. Bundled plugins come first, then community and dev plugins, each by name.
  */
 export function buildPluginRows(
 	agent: readonly PluginStatus[] | null,
@@ -56,18 +59,25 @@ export function buildPluginRows(
 	local: readonly PluginStatus[],
 ): PluginRowModel[] {
 	const localFailures = new Map(
-		local.filter((plugin) => plugin.state === "runtime-failed").map((plugin) => [plugin.id, plugin.errors[plugin.errors.length - 1]]),
+		local
+			.filter((plugin) => plugin.state === "runtime-failed")
+			.map((plugin) => [`${plugin.source}:${plugin.id}`, plugin.errors[plugin.errors.length - 1]]),
 	);
+	const keys = new Map<string, number>();
 	return (agent ?? manifest)
 		.filter((plugin) => plugin.source !== "core")
 		.map((plugin): PluginRowModel => {
-			const failedLocally = localFailures.has(plugin.id);
+			const identity = `${plugin.source}:${plugin.id}`;
+			const seen = keys.get(identity) ?? 0;
+			keys.set(identity, seen + 1);
+			const failedLocally = localFailures.has(identity);
 			const state: PluginState = failedLocally ? "runtime-failed" : plugin.state;
-			const localError = localFailures.get(plugin.id);
+			const localError = localFailures.get(identity);
 			const errors = failedLocally && localError !== undefined ? [localError] : plugin.errors;
 			const detail = stateText(state, errors);
 			const settings = state === "active" ? plugin.settings : {};
 			return {
+				key: seen === 0 ? identity : `${identity}#${seen}`,
 				id: plugin.id,
 				name: plugin.name,
 				label: plugin.name + SOURCE_SUFFIX[plugin.source],

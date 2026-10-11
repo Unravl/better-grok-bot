@@ -89,6 +89,8 @@ export class Agent {
 	private persistQueued = false;
 	private appMissingLogged = false;
 	private stopping: Promise<void> | null = null;
+	/** The running (or completed and restarting) self-update; see {@link installUpdate}. */
+	private updateInFlight: Promise<boolean> | null = null;
 	private readonly onSignal = (): void => void this.stop(false);
 
 	constructor(ctx: CoreContext, deps: AgentDeps, config: Config, release: () => Promise<void>) {
@@ -528,8 +530,30 @@ export class Agent {
 		await this.installUpdate().catch(() => undefined);
 	}
 
-	/** `update.apply`: installs the latest release, then restarts onto it (after the response is sent). */
-	private async installUpdate(): Promise<void> {
+	/**
+	 * `update.apply` and the automatic tick: installs the latest release, then restarts onto it (after
+	 * the response is sent). Single-flight: a caller arriving while an install runs joins it instead of
+	 * starting a second transaction over `bin/`, and once one installed, every later caller joins that
+	 * success while the agent restarts. Only a finished attempt that installed nothing lets the next start.
+	 */
+	private installUpdate(): Promise<void> {
+		if (this.updateInFlight === null) {
+			const attempt = this.applyLatestUpdate();
+			this.updateInFlight = attempt;
+			attempt.then(
+				(installed) => {
+					if (!installed) this.updateInFlight = null;
+				},
+				() => {
+					this.updateInFlight = null;
+				},
+			);
+		}
+		return this.updateInFlight.then(() => undefined);
+	}
+
+	/** Resolves true when a new version was installed (the restart is scheduled). */
+	private async applyLatestUpdate(): Promise<boolean> {
 		const result = await applyUpdate(this.ctx, {
 			restartAgent: true,
 			restart: () => {
@@ -541,5 +565,6 @@ export class Agent {
 		this.setUpdateStatus(result);
 		if (result.state === "error") throw new BgbError("internal", result.error ?? "update failed");
 		if (result.state === "disabled") throw new BgbError("unavailable", "self-update works only in the installed bgb binary");
+		return result.state === "installed";
 	}
 }

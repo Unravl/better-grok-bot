@@ -75,6 +75,35 @@ describe("define", () => {
 		fromScript("off", () => runtime.define("off", () => ({ f: () => 1 })));
 		expect(runtime.call("off", "f")).toBeUndefined();
 	});
+
+	test("status() overlays a runtime failure only on the entry that ran, not on an invalid duplicate of its id", () => {
+		const { runtime, fromScript } = setup([
+			pluginStatus({ id: "push-to-talk", source: "bundled" }),
+			pluginStatus({ id: "push-to-talk", source: "community", state: "invalid", errors: ['id "push-to-talk" is reserved'] }),
+		]);
+		fromScript("push-to-talk", () =>
+			runtime.define("push-to-talk", () => {
+				throw new Error("cannot start");
+			}),
+		);
+		expect(runtime.status().map((status) => [status.source, status.state])).toEqual([
+			["bundled", "runtime-failed"],
+			["community", "invalid"],
+		]);
+	});
+
+	test("a bundled plugin listed before an invalid duplicate of its id is defined", () => {
+		const { runtime, fromScript } = setup([
+			pluginStatus({ id: "push-to-talk", source: "bundled" }),
+			pluginStatus({ id: "push-to-talk", source: "community", state: "invalid", errors: ['id "push-to-talk" is reserved'] }),
+		]);
+		fromScript("push-to-talk", () => runtime.define("push-to-talk", () => ({ ping: () => "bundled" })));
+		expect(runtime.call("push-to-talk", "ping")).toBe("bundled");
+		expect(runtime.status().map((status) => [status.source, status.state])).toEqual([
+			["bundled", "active"],
+			["community", "invalid"],
+		]);
+	});
 });
 
 describe("services", () => {

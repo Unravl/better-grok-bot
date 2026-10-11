@@ -5,6 +5,7 @@ import * as path from "node:path";
 import { type FakePlatform, fakePlatform, tempContext } from "../agent/testing.ts";
 import { mutateConfig } from "../config.ts";
 import type { CoreContext } from "../context.ts";
+import { withBinariesLock } from "../lock.ts";
 import { runCommand } from "../services/command.ts";
 import { mutateState, readState } from "../state.ts";
 import { BGB_VERSION } from "../version.ts";
@@ -160,6 +161,31 @@ test("a checksum mismatch aborts before anything in bin/ changes", async () => {
 	expect(await readdir(ctx.paths.bin)).toEqual(before);
 	expect(await readFile(path.join(ctx.paths.bin, "bgb"), "utf8")).toBe("old");
 	expect((await readState(ctx.paths)).update.error).toContain("checksum mismatch");
+});
+
+test("while another transaction holds the binaries lock, applyUpdate throws conflict and downloads nothing", async () => {
+	await writeFile(path.join(ctx.paths.bin, "bgb"), "old");
+	const { fetchFn, requested } = releaseFetch({});
+	const calls: string[] = [];
+	const holding = Promise.withResolvers<void>();
+	const finish = Promise.withResolvers<void>();
+	const other = withBinariesLock(ctx.paths, async () => {
+		holding.resolve();
+		await finish.promise;
+	});
+	await holding.promise;
+	try {
+		await expect(
+			applyUpdate(ctx, { restartAgent: false, deps: { compiled: true, fetch: fetchFn, arch: "x64", binaries: fakeBinaries(calls) } }),
+		).rejects.toMatchObject({ code: "conflict" });
+	} finally {
+		finish.resolve();
+		await other;
+	}
+	expect(calls).toEqual([]);
+	expect(requested).toEqual(["https://api.github.com/repos/Unravl/better-grok-bot/releases/latest"]);
+	expect(await readFile(path.join(ctx.paths.bin, "bgb"), "utf8")).toBe("old");
+	expect((await readState(ctx.paths)).update.error).toBeNull();
 });
 
 test.skipIf(!posix)("a new binary failing its self-test is rolled back", async () => {
