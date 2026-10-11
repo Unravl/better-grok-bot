@@ -5,7 +5,6 @@ import type { CoreContext } from "../context.ts";
 import { errorMessage } from "../errors.ts";
 import { type DataPaths, rendererUrl } from "../paths.ts";
 import type { HookRecord } from "../platform/types.ts";
-import { psQuote } from "../platform/win32.ts";
 import { mutateState, readState } from "../state.ts";
 import { type SetupHost, systemHost } from "./host.ts";
 import { removePathEntry } from "./path-entry.ts";
@@ -16,25 +15,21 @@ const HELPER_LABEL = "io.github.unravl.bettergrokbot.helper";
 export const PURGE_LOG = "bgb-uninstall.log";
 
 /**
- * The argv of a detached PowerShell that waits for `pid` to exit, then deletes `dir`, retrying while
- * Windows still holds the just-exited exe. If `dir` survives, the last error goes to `log` (a
- * previous run's log is removed first). The script is passed as `-EncodedCommand` (base64 UTF-16LE)
- * and the paths as literals, so nothing shell-parses them.
+ * The detached `cmd.exe` that deletes `dir` (DATA) once this process has exited: it waits about 2 s,
+ * runs `rmdir`, and if `dir` survives waits and runs it once more, keeping that attempt's error in
+ * `log` only while `dir` still exists. The paths travel in `env` and are read with delayed expansion
+ * (`!BGB_PURGE_DIR!`) after cmd has parsed the line, so characters in them (`&`, `%`, `^`, `!`) cannot
+ * change the command. Spawn it with `windowsVerbatimArguments` so the quotes reach cmd as written.
  */
-export function deferredDeleteCommand(pid: number, dir: string, log: string): string[] {
-	const script = [
-		`$p = ${psQuote(dir)}`,
-		`$log = ${psQuote(log)}`,
-		"Remove-Item -LiteralPath $log -Force -ErrorAction SilentlyContinue",
-		`Wait-Process -Id ${pid} -ErrorAction SilentlyContinue`,
-		"$err = $null",
-		"for ($i = 0; $i -lt 20 -and (Test-Path -LiteralPath $p); $i++) {",
-		"\ttry { Remove-Item -LiteralPath $p -Recurse -Force -ErrorAction Stop } catch { $err = $_; Start-Sleep -Milliseconds 500 }",
-		"}",
-		'if (Test-Path -LiteralPath $p) { Set-Content -LiteralPath $log -Value "could not delete ${p}: $err" }',
-	].join("\n");
-	const encoded = Buffer.from(script, "utf16le").toString("base64");
-	return ["powershell.exe", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-EncodedCommand", encoded];
+export function deferredDeleteCommand(dir: string, log: string): { cmd: string[]; env: Record<string, string> } {
+	const wait = "ping -n 3 127.0.0.1 >nul";
+	const line = [
+		`del /q "!BGB_PURGE_LOG!" 2>nul`,
+		wait,
+		`rmdir /s /q "!BGB_PURGE_DIR!" 2>nul`,
+		`if exist "!BGB_PURGE_DIR!" (${wait} & rmdir /s /q "!BGB_PURGE_DIR!" 2>"!BGB_PURGE_LOG!" & if not exist "!BGB_PURGE_DIR!" del /q "!BGB_PURGE_LOG!")`,
+	].join(" & ");
+	return { cmd: ["cmd.exe", "/d", "/v:on", "/c", line], env: { BGB_PURGE_DIR: dir, BGB_PURGE_LOG: log } };
 }
 
 /**
@@ -157,11 +152,14 @@ export async function runUninstall(
 			// This exe lives in DATA\bin and can't be deleted while it runs: delete the rest now and DATA
 			// once it has exited.
 			for (const failure of await clearDataExceptBin(paths)) host.print(`Deleting after exit instead: ${failure}`);
-			Bun.spawn(deferredDeleteCommand(process.pid, paths.root, path.join(tmpdir(), PURGE_LOG)), {
+			const deferred = deferredDeleteCommand(paths.root, path.join(tmpdir(), PURGE_LOG));
+			Bun.spawn(deferred.cmd, {
 				cwd: tmpdir(),
+				env: { ...process.env, ...deferred.env },
 				detached: true,
 				stdio: ["ignore", "ignore", "ignore"],
 				windowsHide: true,
+				windowsVerbatimArguments: true,
 			}).unref();
 		} else {
 			await rm(paths.root, { recursive: true, force: true });

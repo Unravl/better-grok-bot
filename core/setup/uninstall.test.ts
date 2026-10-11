@@ -109,16 +109,34 @@ test("--purge keeps DATA and the hook record while a foreign entry still points 
 	expect(host.err.some((line) => line.includes("still hooked to"))).toBe(true);
 });
 
-test("the deferred Windows delete passes the DATA and log paths as PowerShell literals", () => {
-	const dir = "C:\\Users\\a b\\x&y %USERPROFILE% $env:TEMP it's";
-	const argv = deferredDeleteCommand(4242, dir, "C:\\Temp\\o'k\\bgb-uninstall.log");
-	expect(argv.slice(0, -1)).toEqual(["powershell.exe", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-EncodedCommand"]);
-	const script = Buffer.from(argv.at(-1) ?? "", "base64").toString("utf16le");
-	expect(script).toContain("Wait-Process -Id 4242");
-	expect(script).toContain("$p = 'C:\\Users\\a b\\x&y %USERPROFILE% $env:TEMP it''s'");
-	expect(script).toContain("$log = 'C:\\Temp\\o''k\\bgb-uninstall.log'");
-	expect(script).toContain("Remove-Item -LiteralPath $p -Recurse -Force");
+test("the deferred Windows delete keeps the DATA and log paths out of cmd's command line", () => {
+	const dir = "C:\\Users\\Tom&Jerry\\x %USERPROFILE% ^! it's";
+	const log = "C:\\Temp\\a&b\\bgb-uninstall.log";
+	const { cmd, env } = deferredDeleteCommand(dir, log);
+	expect(cmd.slice(0, 4)).toEqual(["cmd.exe", "/d", "/v:on", "/c"]);
+	const line = cmd.slice(4).join(" ");
+	expect(line).not.toContain("Tom&Jerry");
+	expect(line).not.toContain("a&b");
+	expect(line).toContain('rmdir /s /q "!BGB_PURGE_DIR!"');
+	expect(env).toEqual({ BGB_PURGE_DIR: dir, BGB_PURGE_LOG: log });
 });
+
+test.skipIf(process.platform !== "win32")("the deferred Windows delete removes a DATA path with cmd metacharacters and nothing else", async () => {
+	const sibling = path.join(root, "a");
+	const dir = path.join(root, "a&b %TEMP% ^!x!");
+	await mkdir(path.join(dir, "bin"), { recursive: true });
+	await writeFile(path.join(dir, "bin", "bgb.exe"), "exe");
+	await mkdir(sibling);
+	const log = path.join(root, "purge.log");
+	const { cmd, env } = deferredDeleteCommand(dir, log);
+
+	const proc = Bun.spawn(cmd, { env: { ...process.env, ...env }, stdio: ["ignore", "ignore", "ignore"], windowsVerbatimArguments: true });
+	await proc.exited;
+
+	expect(existsSync(dir)).toBe(false);
+	expect(existsSync(sibling)).toBe(true);
+	expect(existsSync(log)).toBe(false);
+}, 20_000);
 
 test("the Windows purge clears DATA except bin without following the current junction", async () => {
 	const ctx = await context();
