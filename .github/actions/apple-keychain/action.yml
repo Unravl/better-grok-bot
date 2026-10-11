@@ -1,0 +1,32 @@
+name: Import Apple signing certificate
+description: Imports a base64 Developer ID .p12 into a temporary keychain on a macOS runner.
+inputs:
+  certificate:
+    description: Base64-encoded .p12 (secret APPLE_CERTIFICATE)
+    required: true
+  password:
+    description: Password of the .p12 (secret APPLE_CERTIFICATE_PASSWORD)
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Create keychain and import certificate
+      shell: bash
+      env:
+        CERTIFICATE: ${{ inputs.certificate }}
+        CERTIFICATE_PASSWORD: ${{ inputs.password }}
+      run: |
+        set -euo pipefail
+        keychain="$RUNNER_TEMP/bgb-signing.keychain-db"
+        keychain_password="$(openssl rand -base64 24)"
+        printf '%s' "$CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/bgb-signing.p12"
+        security create-keychain -p "$keychain_password" "$keychain"
+        security set-keychain-settings -lut 21600 "$keychain"
+        security unlock-keychain -p "$keychain_password" "$keychain"
+        security import "$RUNNER_TEMP/bgb-signing.p12" -P "$CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$keychain"
+        security set-key-partition-list -S apple-tool:,apple: -s -k "$keychain_password" "$keychain" > /dev/null
+        # Prepend the temporary keychain to the user search list.
+        existing="$(security list-keychains -d user | tr -d '"' | xargs)"
+        # shellcheck disable=SC2086
+        security list-keychains -d user -s "$keychain" $existing
+        rm -f "$RUNNER_TEMP/bgb-signing.p12"

@@ -1,0 +1,151 @@
+name: Native helpers release
+
+on:
+  push:
+    tags: ["helper-v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    runs-on: macos-15
+    env:
+      HAS_APPLE_SIGNING: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && secrets.APPLE_SIGNING_IDENTITY != '' && secrets.APPLE_ID != '' && secrets.APPLE_PASSWORD != '' && secrets.APPLE_TEAM_ID != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Helper version from the tag
+        run: echo "HELPER_VERSION=${GITHUB_REF_NAME#helper-v}" >> "$GITHUB_ENV"
+      - name: Import signing certificate
+        if: env.HAS_APPLE_SIGNING == 'true'
+        uses: ./.github/actions/apple-keychain
+        with:
+          certificate: ${{ secrets.APPLE_CERTIFICATE }}
+          password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      - name: Build (Developer ID)
+        if: env.HAS_APPLE_SIGNING == 'true'
+        env:
+          MACOS_SIGN_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: native/macos-helper/build.sh
+      - name: Build (ad hoc)
+        if: env.HAS_APPLE_SIGNING != 'true'
+        run: native/macos-helper/build.sh
+      - name: Notarize and staple
+        if: env.HAS_APPLE_SIGNING == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        working-directory: native/macos-helper/build
+        run: |
+          set -euo pipefail
+          xcrun notarytool submit bgb-helper-macos-universal.zip --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_PASSWORD" --wait
+          xcrun stapler staple "Better Grok Bot Helper.app"
+          rm bgb-helper-macos-universal.zip
+          ditto -c -k --keepParent "Better Grok Bot Helper.app" bgb-helper-macos-universal.zip
+      - name: Verify signature
+        run: codesign --verify --deep --strict --verbose=2 "native/macos-helper/build/Better Grok Bot Helper.app"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: helper-darwin-universal
+          path: native/macos-helper/build/bgb-helper-macos-universal.zip
+          if-no-files-found: error
+
+  rust:
+    name: rust (${{ matrix.key }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - key: windows-x64
+            runner: windows-2025
+            triple: x86_64-pc-windows-msvc
+            asset: bgb-helper-windows-x64.exe
+            binary: bgb-helper.exe
+          - key: windows-arm64
+            runner: windows-11-arm
+            triple: aarch64-pc-windows-msvc
+            asset: bgb-helper-windows-arm64.exe
+            binary: bgb-helper.exe
+          - key: linux-x64
+            runner: ubuntu-24.04
+            triple: x86_64-unknown-linux-gnu
+            asset: bgb-helper-linux-x64
+            binary: bgb-helper
+          - key: linux-arm64
+            runner: ubuntu-24.04-arm
+            triple: aarch64-unknown-linux-gnu
+            asset: bgb-helper-linux-arm64
+            binary: bgb-helper
+    runs-on: ${{ matrix.runner }}
+    env:
+      HAS_AZURE_SIGNING: ${{ secrets.AZURE_TENANT_ID != '' && secrets.AZURE_CLIENT_ID != '' && secrets.AZURE_CLIENT_SECRET != '' && secrets.AZURE_TRUSTED_SIGNING_ENDPOINT != '' && secrets.AZURE_TRUSTED_SIGNING_ACCOUNT != '' && secrets.AZURE_TRUSTED_SIGNING_PROFILE != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.triple }}
+      - name: Build
+        working-directory: native
+        run: cargo build --release -p bgb-helper --target ${{ matrix.triple }}
+      - name: Stage asset
+        shell: bash
+        run: |
+          mkdir -p out
+          cp "native/target/${{ matrix.triple }}/release/${{ matrix.binary }}" "out/${{ matrix.asset }}"
+      - name: Sign (Azure Trusted Signing)
+        if: runner.os == 'Windows' && env.HAS_AZURE_SIGNING == 'true'
+        uses: azure/trusted-signing-action@v2
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          endpoint: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ secrets.AZURE_TRUSTED_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ secrets.AZURE_TRUSTED_SIGNING_PROFILE }}
+          files: ${{ github.workspace }}/out/${{ matrix.asset }}
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: helper-${{ matrix.key }}
+          path: out/${{ matrix.asset }}
+          if-no-files-found: error
+
+  release:
+    needs: [macos, rust]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: helper-*
+          path: assets
+          merge-multiple: true
+      - name: SHA256SUMS and helper-manifest.json
+        working-directory: assets
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#helper-v}"
+          sha256sum bgb-helper-* > SHA256SUMS
+          cat SHA256SUMS
+          entry() { printf '"%s": {"name": "%s", "sha256": "%s"}' "$1" "$2" "$(sha256sum "$2" | cut -d' ' -f1)"; }
+          {
+            printf '{"version": %s, "tag": "%s", "assets": {' "$version" "$GITHUB_REF_NAME"
+            entry darwin-universal bgb-helper-macos-universal.zip; printf ', '
+            entry windows-x64 bgb-helper-windows-x64.exe; printf ', '
+            entry windows-arm64 bgb-helper-windows-arm64.exe; printf ', '
+            entry linux-x64 bgb-helper-linux-x64; printf ', '
+            entry linux-arm64 bgb-helper-linux-arm64
+            printf '}}\n'
+          } | jq . > helper-manifest.json
+          cat helper-manifest.json
+      - name: Create the pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        working-directory: assets
+        run: |
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --prerelease \
+            --title "Native helpers ${GITHUB_REF_NAME#helper-v}" \
+            --notes "Native key/media helpers for Better Grok Bot. Pin them with: bun scripts/update-helper-manifest.ts $GITHUB_REF_NAME" \
+            bgb-helper-* SHA256SUMS helper-manifest.json

@@ -1,0 +1,57 @@
+name: Plugin broken by a Grok Bot update
+description: A plugin shows "patch failed" or stopped working after Grok Bot updated
+labels: [plugin-broken]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The upstream canary tests every new Grok Bot release and opens an `upstream-break` issue
+        when a bundled plugin breaks; check the open issues first. Community plugins are maintained
+        by their authors: report those in the plugin's own repository.
+
+        Never paste Grok Bot's own code (extracted or patched renderer files) here.
+  - type: input
+    id: plugin
+    attributes:
+      label: Plugin id
+      placeholder: push-to-talk
+    validations:
+      required: true
+  - type: dropdown
+    id: source
+    attributes:
+      label: Plugin source
+      options:
+        - bundled (ships with Better Grok Bot)
+        - community (installed with `bgb plugins install`)
+        - dev (`bgb dev`)
+    validations:
+      required: true
+  - type: input
+    id: grok-version
+    attributes:
+      label: Grok Bot version
+      placeholder: "0.69.0"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system and architecture
+      placeholder: macOS 15.5 arm64
+    validations:
+      required: true
+  - type: textarea
+    id: status
+    attributes:
+      label: "`bgb status` output"
+      description: Shows each plugin's state and its patch errors.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: What stopped working?
+    validations:
+      required: false

@@ -1,0 +1,232 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+      - name: Tag matches package.json
+        run: |
+          version="$(jq -r .version package.json)"
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match package.json version $version"
+            exit 1
+          fi
+      - name: Release notes
+        run: bun scripts/extract-changelog.ts "${GITHUB_REF_NAME#v}" > release-notes.md
+      - name: Helper manifest pins all five helpers
+        run: |
+          missing="$(jq -r '["darwin-universal","windows-x64","windows-arm64","linux-x64","linux-arm64"] - (.assets | keys) | join(", ")' native/helper-manifest.json)"
+          if [ -n "$missing" ]; then
+            echo "::error::native/helper-manifest.json has no asset for: $missing (release helpers first; see docs/releasing.md)"
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-notes
+          path: release-notes.md
+
+  build:
+    name: build (${{ matrix.asset }})
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            target: bun-darwin-arm64
+            asset: bgb-darwin-arm64
+          - runner: macos-15
+            target: bun-darwin-x64
+            asset: bgb-darwin-x64
+          - runner: ubuntu-24.04
+            target: bun-linux-x64
+            asset: bgb-linux-x64
+          - runner: ubuntu-24.04-arm
+            target: bun-linux-arm64
+            asset: bgb-linux-arm64
+          - runner: windows-2025
+            target: bun-windows-x64
+            asset: bgb-windows-x64
+          - runner: windows-11-arm
+            target: bun-windows-arm64
+            asset: bgb-windows-arm64
+    runs-on: ${{ matrix.runner }}
+    env:
+      HAS_APPLE_SIGNING: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && secrets.APPLE_SIGNING_IDENTITY != '' && secrets.APPLE_ID != '' && secrets.APPLE_PASSWORD != '' && secrets.APPLE_TEAM_ID != '' }}
+      HAS_AZURE_SIGNING: ${{ secrets.AZURE_TENANT_ID != '' && secrets.AZURE_CLIENT_ID != '' && secrets.AZURE_CLIENT_SECRET != '' && secrets.AZURE_TRUSTED_SIGNING_ENDPOINT != '' && secrets.AZURE_TRUSTED_SIGNING_ACCOUNT != '' && secrets.AZURE_TRUSTED_SIGNING_PROFILE != '' }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+      - name: Rust (bgbw.exe)
+        if: runner.os == 'Windows'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target == 'bun-windows-arm64' && 'aarch64-pc-windows-msvc' || 'x86_64-pc-windows-msvc' }}
+      - run: bun install --frozen-lockfile
+      - name: Compile
+        run: bun scripts/build-binaries.ts compile --target ${{ matrix.target }} --out dist
+
+      - name: Import Apple signing certificate
+        if: runner.os == 'macOS' && env.HAS_APPLE_SIGNING == 'true'
+        uses: ./.github/actions/apple-keychain
+        with:
+          certificate: ${{ secrets.APPLE_CERTIFICATE }}
+          password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      - name: Sign and notarize (macOS)
+        if: runner.os == 'macOS' && env.HAS_APPLE_SIGNING == 'true'
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          codesign --force --options runtime --timestamp --entitlements packaging/macos/entitlements.plist --sign "$APPLE_SIGNING_IDENTITY" dist/bgb
+          codesign --verify --strict --verbose=2 dist/bgb
+          ditto -c -k dist/bgb "$RUNNER_TEMP/notarize.zip"
+          # A bare Mach-O can't be stapled; Gatekeeper checks the ticket online.
+          xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_PASSWORD" --wait
+      - name: Sign (Azure Trusted Signing)
+        if: runner.os == 'Windows' && env.HAS_AZURE_SIGNING == 'true'
+        uses: azure/trusted-signing-action@v2
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          endpoint: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ secrets.AZURE_TRUSTED_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ secrets.AZURE_TRUSTED_SIGNING_PROFILE }}
+          files: |
+            ${{ github.workspace }}/dist/bgb.exe
+            ${{ github.workspace }}/dist/bgbw.exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+
+      - name: Smoke-test the compiled binary
+        run: bun scripts/smoke-compiled.ts --bin "dist/bgb${{ runner.os == 'Windows' && '.exe' || '' }}"
+      - name: Archive
+        id: archive
+        run: |
+          set -euo pipefail
+          file="$(bun scripts/build-binaries.ts archive --dir dist --name ${{ matrix.asset }})"
+          name="$(basename "$file")"
+          grep "  $name\$" dist/SHA256SUMS > "dist/${{ matrix.asset }}.sha256"
+          echo "file=dist/$name" >> "$GITHUB_OUTPUT"
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: ${{ steps.archive.outputs.file }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.asset }}
+          path: |
+            ${{ steps.archive.outputs.file }}
+            dist/${{ matrix.asset }}.sha256
+          if-no-files-found: error
+
+  e2e:
+    name: e2e (${{ matrix.feed-platform }})
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            platform: darwin-arm64
+            feed-platform: darwin-arm64
+            format: dmg
+            asset: bgb-darwin-arm64
+            archive: bgb-darwin-arm64.tar.gz
+          - runner: windows-2025
+            platform: win32-x64
+            feed-platform: win32-x64-user
+            format: exe
+            asset: bgb-windows-x64
+            archive: bgb-windows-x64.zip
+          - runner: ubuntu-24.04
+            platform: linux-x64
+            feed-platform: linux-x64
+            format: deb
+            asset: bgb-linux-x64
+            archive: bgb-linux-x64.tar.gz
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+      - run: bun install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-${{ matrix.asset }}
+          path: artifacts
+      - name: Linux display and session bus
+        if: runner.os == 'Linux'
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgtk-3-bin dbus-x11 libglib2.0-bin
+          Xvfb :99 -screen 0 1280x800x24 &
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
+      - name: Install Grok Bot (latest feed version)
+        run: bun scripts/fetch-upstream.ts --platform ${{ matrix.platform }} --format ${{ matrix.format }} --install
+      - name: End-to-end test
+        run: |
+          set -euo pipefail
+          args=(scripts/e2e.ts --archive "artifacts/${{ matrix.archive }}" --sums "artifacts/${{ matrix.asset }}.sha256" --feed-platform "${{ matrix.feed-platform }}")
+          if [ "$RUNNER_OS" = Linux ]; then dbus-run-session -- bun "${args[@]}"; else bun "${args[@]}"; fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-${{ matrix.feed-platform }}
+          path: e2e-${{ matrix.feed-platform }}.json
+          if-no-files-found: warn
+
+  publish:
+    needs: [verify, build, e2e]
+    runs-on: ubuntu-24.04
+    steps:
+      # `release-*` also matches the `release-notes` artifact, so release-notes.md lands here too.
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: release
+          merge-multiple: true
+      - name: SHA256SUMS
+        working-directory: release
+        run: |
+          set -euo pipefail
+          cat ./*.sha256 | sort -k2 > SHA256SUMS
+          rm ./*.sha256
+          sha256sum -c SHA256SUMS
+          test -s release-notes.md
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        working-directory: release
+        run: |
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+            --title "Better Grok Bot ${GITHUB_REF_NAME#v}" \
+            --notes-file release-notes.md \
+            ./*.tar.gz ./*.zip SHA256SUMS

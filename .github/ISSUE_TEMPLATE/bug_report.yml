@@ -1,0 +1,60 @@
+name: Bug report
+description: Better Grok Bot itself misbehaves (install, agent, Settings section, themes, a bundled plugin)
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Never paste Grok Bot's own code (extracted or patched renderer files) here.
+        If a Grok Bot update broke a plugin, use the "Plugin broken by a Grok Bot update" form instead.
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS (Apple silicon)
+        - macOS (Intel)
+        - Windows x64
+        - Windows arm64
+        - Linux x64 (X11)
+        - Linux x64 (Wayland)
+        - Linux arm64 (X11)
+        - Linux arm64 (Wayland)
+    validations:
+      required: true
+  - type: input
+    id: os-version
+    attributes:
+      label: OS version
+      placeholder: macOS 15.5 / Windows 11 24H2 / Ubuntu 24.04
+    validations:
+      required: true
+  - type: input
+    id: grok-version
+    attributes:
+      label: Grok Bot version
+      description: Grok Bot → Settings → Updates, or `bgb status`
+      placeholder: "0.68.1"
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: "`bgb doctor` output"
+      description: Run `bgb doctor` in a terminal and paste the whole output.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Agent log (optional)
+      description: The relevant lines of `bgb logs`. Remove anything private.
+      render: text
