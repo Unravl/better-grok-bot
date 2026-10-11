@@ -1,5 +1,14 @@
 import * as asar from "@electron/asar";
+import * as path from "node:path";
 import { errorMessage } from "../errors.ts";
+
+/**
+ * `@electron/asar` looks entries up by splitting on `path.sep`, so on Windows an archive path must use
+ * `\`. Converts a POSIX archive path (`dist/renderer/index.html`) to the form every lookup needs.
+ */
+export function asarEntry(posixPath: string): string {
+	return posixPath.split("/").join(path.sep);
+}
 
 /**
  * Reads `package.json` from a Grok Bot `app.asar`. Drops `@electron/asar`'s cached header first, so an

@@ -61,7 +61,8 @@ async function bundle(entry: string, root: string, format: "iife" | "esm", dev: 
 	});
 	const output = result.outputs.find((artifact) => artifact.kind === "entry-point");
 	if (!result.success || output === undefined) {
-		throw new Error(`bundling ${path.relative(root, entry)} failed:\n${result.logs.map(String).join("\n") || "no output"}`);
+		const relative = path.relative(root, entry).split(path.sep).join("/");
+		throw new Error(`bundling ${relative} failed:\n${result.logs.map(String).join("\n") || "no output"}`);
 	}
 	return output.text();
 }

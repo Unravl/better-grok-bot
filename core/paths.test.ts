@@ -5,14 +5,20 @@ import * as path from "node:path";
 import { dataPaths, defaultDataDir, ensureDataDir, rendererUrl } from "./paths.ts";
 
 test("dataPaths lays out DATA", () => {
-	const paths = dataPaths("/tmp/data");
-	expect(paths.agentRecord).toBe(path.join("/tmp/data", "agent.pid"));
-	expect(paths.devPlugins).toBe(path.join("/tmp/data", "dev-plugins.json"));
-	expect(paths.binPrevious).toBe(path.join("/tmp/data", "bin", "previous"));
-	expect(paths.current).toBe(path.join("/tmp/data", "current"));
+	const root = process.platform === "win32" ? "C:\\tmp\\data" : "/tmp/data";
+	const paths = dataPaths(root);
+	expect(paths.agentRecord).toBe(path.join(root, "agent.pid"));
+	expect(paths.devPlugins).toBe(path.join(root, "dev-plugins.json"));
+	expect(paths.binPrevious).toBe(path.join(root, "bin", "previous"));
+	expect(paths.current).toBe(path.join(root, "current"));
 });
 
 test("rendererUrl encodes spaces and ends with ?bgb", () => {
+	if (process.platform === "win32") {
+		const url = rendererUrl(dataPaths("C:\\Users\\x\\AppData\\Local\\Better Grok Bot"));
+		expect(url).toBe("file:///C:/Users/x/AppData/Local/Better%20Grok%20Bot/current/renderer/index.html?bgb");
+		return;
+	}
 	const url = rendererUrl(dataPaths("/Users/x/Library/Application Support/BetterGrokBot"));
 	expect(url).toBe("file:///Users/x/Library/Application%20Support/BetterGrokBot/current/renderer/index.html?bgb");
 });

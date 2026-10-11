@@ -41,11 +41,11 @@ async function otherAppAsars(ctx: CoreContext): Promise<string[]> {
 
 /** Reads the asar's `package.json` `main` file in memory and looks for the variable. */
 async function readsRendererVariable(asarPath: string): Promise<boolean> {
-	const { withArchive } = await import("../app/asar.ts");
+	const [{ withArchive }, { asarEntry }] = await Promise.all([import("../app/asar.ts"), import("../app/package.ts")]);
 	return withArchive(asarPath, () => {
 		const pkg = JSON.parse(asar.extractFile(asarPath, "package.json").toString("utf8")) as { main?: unknown };
 		const main = (typeof pkg.main === "string" ? pkg.main : "index.js").replace(/^\.\//, "");
-		return asar.extractFile(asarPath, main).toString("utf8").includes(RENDERER_URL_ENV);
+		return asar.extractFile(asarPath, asarEntry(main)).toString("utf8").includes(RENDERER_URL_ENV);
 	});
 }
 

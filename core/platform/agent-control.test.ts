@@ -69,7 +69,8 @@ test("POST /shutdown with the bearer token stops the agent", async () => {
 	}
 });
 
-test("an agent ignoring shutdown and SIGTERM is killed hard", async () => {
+// Windows has no catchable SIGTERM: `process.kill(pid, "SIGTERM")` is TerminateProcess, so no agent survives it.
+test.skipIf(process.platform === "win32")("an agent ignoring shutdown and SIGTERM is killed hard", async () => {
 	await ensureConfig(paths);
 	const child = await fakeAgent(1, true);
 	let hard = 0;
