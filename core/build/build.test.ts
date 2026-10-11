@@ -5,7 +5,9 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { BootPayload, PluginPackageJson } from "../../sdk/index.ts";
 import { mutateConfig, readConfig } from "../config.ts";
+import { BUNDLED_PLUGINS } from "../plugins/bundled.ts";
 import { installPlugin } from "../plugins/install.ts";
+import { compareNames } from "../plugins/package.ts";
 import { readState } from "../state.ts";
 import { type TestContext, makeTestContext } from "../test/build-context.ts";
 import { makeFixtureAsar } from "../test/fixtures.ts";
@@ -185,17 +187,21 @@ test("community plugins are patched, injected and listed with every other plugin
 	expect(await readFile(path.join(rendererDir, "assets", "bgb", "plugins", "demo.js"), "utf8")).toBe("console.log('demo')");
 	const index = await readFile(path.join(rendererDir, "index.html"), "utf8");
 	expect(index).toMatch(/<script src="file:[^"]+\/assets\/bgb\/plugins\/demo\.js" data-bgb-plugin="demo"><\/script>/);
+	// Plugins that failed to patch get no runtime script.
+	expect([...index.matchAll(/data-bgb-plugin="([^"]+)"/g)].map((match) => match[1])).toEqual(["demo"]);
 
-	const states = Object.fromEntries(outcome.manifest.plugins.map((plugin) => [plugin.id, plugin.state]));
-	expect(states).toEqual({
-		"bgb-react": "patch-failed",
-		"bgb-settings": "patch-failed",
-		"bgb-client": "patch-failed",
-		broken: "invalid",
-		demo: "active",
-		"macos-only": "unsupported-platform",
-		off: "disabled",
-	});
+	// The synthetic renderer has none of the app's anchors, so core hooks and bundled plugins with patches fail.
+	const bundled = BUNDLED_PLUGINS.map((plugin) => plugin.definition).sort((a, b) => compareNames(a.id, b.id));
+	expect(outcome.manifest.plugins.map((plugin) => [plugin.id, plugin.source, plugin.state])).toEqual([
+		["bgb-react", "core", "patch-failed"],
+		["bgb-settings", "core", "patch-failed"],
+		["bgb-client", "core", "patch-failed"],
+		...bundled.map((def) => [def.id, "bundled", (def.patches ?? []).length > 0 ? "patch-failed" : "active"]),
+		["broken", "community", "invalid"],
+		["demo", "community", "active"],
+		["macos-only", "community", "unsupported-platform"],
+		["off", "community", "disabled"],
+	]);
 	const demo = outcome.manifest.plugins.find((plugin) => plugin.id === "demo");
 	expect(demo).toMatchObject({ source: "community", granted: ["keys"], permissions: ["keys", "media"], hasRuntime: true });
 
