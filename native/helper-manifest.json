@@ -1,26 +1,26 @@
 {
-	"version": 1,
-	"tag": "helper-v1",
+	"version": 2,
+	"tag": "helper-v2",
 	"assets": {
 		"darwin-universal": {
 			"name": "bgb-helper-macos-universal.zip",
-			"sha256": "2793b62b6bac971c9ca0e0d6ce452373de44f691c8a723503574a8aea7386397"
+			"sha256": "43ad1587c034ac466329c85e3470dd094c69a4a19dcc7a914103c8024c0923e2"
 		},
 		"windows-x64": {
 			"name": "bgb-helper-windows-x64.exe",
-			"sha256": "ce267662eb5acdc6d7db6ce5fe3775a74a36194ecf70d150999e884c98b1190b"
+			"sha256": "507ddad576b363c14b605c056d656b827056daf3263c6d9e654261372bf1ca70"
 		},
 		"windows-arm64": {
 			"name": "bgb-helper-windows-arm64.exe",
-			"sha256": "24238c0f644369d6aa32123df228b11e7f220b48a098ca122e1ebd9cd3bc94ab"
+			"sha256": "03b513c3cf4a6f54b6175f6b81e8b0a1ff4e54b7eab074f33241ac3dc3c49553"
 		},
 		"linux-x64": {
 			"name": "bgb-helper-linux-x64",
-			"sha256": "ab5b23013de738a6dfd28dec1df136f0e333bf675c4cf617c10119b227dfb8e3"
+			"sha256": "14c082c16a1524715f37171d5b18899e23375db926c8de0dd3f90df374c26eba"
 		},
 		"linux-arm64": {
 			"name": "bgb-helper-linux-arm64",
-			"sha256": "573470d4ac1108d80dcc4836f48729e96c62b357de9c2c821b69d3b6e64e4217"
+			"sha256": "ee356135ff5529ecf809c5f1d69ffdea9e45319c146ff00563c7c9f2cf63c793"
 		}
 	}
 }
