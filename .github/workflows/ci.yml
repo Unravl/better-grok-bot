@@ -1,0 +1,125 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  ts:
+    name: ts (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+      - name: Rust (bgbw.exe)
+        if: runner.os == 'Windows'
+        uses: dtolnay/rust-toolchain@stable
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun test
+      - run: bun run build:binary
+      - name: Smoke-test the compiled binary
+        shell: bash
+        run: bun scripts/smoke-compiled.ts --bin "dist/bgb${{ runner.os == 'Windows' && '.exe' || '' }}"
+
+  linux-it:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install PulseAudio, Xvfb and xdotool
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pulseaudio pulseaudio-utils xvfb xdotool
+      - name: Start PulseAudio
+        run: pulseaudio --start --exit-idle-time=-1
+      - run: bun install --frozen-lockfile
+      - run: bun run embed
+      - name: Linux media ducking (pactl)
+        env:
+          BGB_PULSE_IT: "1"
+        run: bun test ./core/services/media-linux.it.test.ts
+      - name: Start Xvfb
+        run: |
+          Xvfb :99 -screen 0 1280x800x24 &
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
+      - name: X11 key helper
+        working-directory: native
+        env:
+          BGB_X11_IT: "1"
+        run: cargo test -p bgb-helper --test x11_keys
+
+  compat:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+      - run: bun install --frozen-lockfile
+      - name: Fetch the latest Grok Bot (linux-x64 deb)
+        run: bun scripts/fetch-upstream.ts --platform linux-x64 --format deb --extract "$RUNNER_TEMP/grok"
+      - run: bun run embed
+      - name: bgb check
+        run: bun core/cli.ts check --asar "$RUNNER_TEMP/grok/opt/Grok Bot/resources/app.asar" --json > compat-linux-x64.json
+      - name: Show report
+        if: always()
+        run: cat compat-linux-x64.json || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: compat-linux-x64
+          path: compat-linux-x64.json
+          if-no-files-found: warn
+
+  rust:
+    name: rust (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: native
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+      - name: Windows key hook
+        if: runner.os == 'Windows'
+        env:
+          BGB_WIN_IT: "1"
+        run: cargo test -p bgb-helper --test windows_keys
+
+  swift:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - run: native/macos-helper/build.sh --check
+
+  actionlint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:latest -color

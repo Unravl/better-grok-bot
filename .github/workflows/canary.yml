@@ -1,0 +1,168 @@
+name: Upstream canary
+
+on:
+  schedule:
+    - cron: "17 */3 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Re-test every current feed entry, even ones that already passed
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: canary
+  cancel-in-progress: false
+
+jobs:
+  detect:
+    runs-on: ubuntu-24.04
+    outputs:
+      commit: ${{ steps.detect.outputs.commit }}
+      compat: ${{ steps.detect.outputs.compat }}
+      e2e: ${{ steps.detect.outputs.e2e }}
+      has-compat: ${{ steps.detect.outputs.has-compat }}
+      has-e2e: ${{ steps.detect.outputs.has-e2e }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+      - run: bun install --frozen-lockfile
+      - id: detect
+        env:
+          FORCE: ${{ inputs.force == true }}
+        run: |
+          if [ "$FORCE" = true ]; then bun scripts/canary.ts detect --force; else bun scripts/canary.ts detect; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: canary-selected
+          path: canary-selected.json
+          if-no-files-found: error
+
+  compat:
+    name: compat (${{ matrix.feedPlatform }})
+    needs: detect
+    if: needs.detect.outputs.has-compat == 'true'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.detect.outputs.compat) }}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.detect.outputs.commit }}
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+      - run: bun install --frozen-lockfile
+      - name: 7-Zip (Windows installer)
+        if: matrix.format == 'exe'
+        run: sudo apt-get update && sudo apt-get install -y p7zip-full
+      - name: Fetch and extract
+        id: fetch
+        env:
+          URL: ${{ matrix.url }}
+          FORMAT: ${{ matrix.format }}
+        run: |
+          set -euo pipefail
+          asar="$(bun scripts/fetch-upstream.ts --url "$URL" --format "$FORMAT" --extract "$RUNNER_TEMP/grok" | tail -n 1)"
+          echo "asar=$asar" >> "$GITHUB_OUTPUT"
+      - run: bun run embed
+      - name: bgb check
+        env:
+          ASAR: ${{ steps.fetch.outputs.asar }}
+          FEED_PLATFORM: ${{ matrix.feedPlatform }}
+        run: |
+          set +e
+          bun core/cli.ts check --asar "$ASAR" --json > "compat-$FEED_PLATFORM.json"
+          code=$?
+          cat "compat-$FEED_PLATFORM.json"
+          # 3 = check found failures: recorded in the report, not a job failure.
+          if [ "$code" -ne 0 ] && [ "$code" -ne 3 ]; then exit "$code"; fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: compat-${{ matrix.feedPlatform }}
+          path: compat-${{ matrix.feedPlatform }}.json
+          if-no-files-found: warn
+
+  e2e:
+    name: e2e (${{ matrix.feedPlatform }})
+    needs: detect
+    if: needs.detect.outputs.has-e2e == 'true'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.detect.outputs.e2e) }}
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.detect.outputs.commit }}
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+      - name: Rust (bgbw.exe)
+        if: runner.os == 'Windows'
+        uses: dtolnay/rust-toolchain@stable
+      - run: bun install --frozen-lockfile
+      - name: Build and archive bgb
+        id: archive
+        run: |
+          set -euo pipefail
+          bun scripts/build-binaries.ts compile --host --out dist
+          file="$(bun scripts/build-binaries.ts archive --dir dist --name "${{ matrix.asset }}")"
+          echo "file=$file" >> "$GITHUB_OUTPUT"
+      - name: Linux display and session bus
+        if: runner.os == 'Linux'
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgtk-3-bin dbus-x11 libglib2.0-bin
+          Xvfb :99 -screen 0 1280x800x24 &
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
+      - name: Install Grok Bot ${{ matrix.version }}
+        env:
+          URL: ${{ matrix.url }}
+          FORMAT: ${{ matrix.format }}
+        run: bun scripts/fetch-upstream.ts --url "$URL" --format "$FORMAT" --install
+      - name: End-to-end test
+        env:
+          ARCHIVE: ${{ steps.archive.outputs.file }}
+          FEED_PLATFORM: ${{ matrix.feedPlatform }}
+        run: |
+          set -euo pipefail
+          args=(scripts/e2e.ts --archive "$ARCHIVE" --sums dist/SHA256SUMS --feed-platform "$FEED_PLATFORM")
+          if [ "$RUNNER_OS" = Linux ]; then dbus-run-session -- bun "${args[@]}"; else bun "${args[@]}"; fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-${{ matrix.feedPlatform }}
+          path: e2e-${{ matrix.feedPlatform }}.json
+          if-no-files-found: warn
+
+  report:
+    needs: [detect, compat, e2e]
+    if: always() && needs.detect.result == 'success'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+      - run: bun install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          path: results
+          merge-multiple: true
+      - name: Record results and report breaks
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bun scripts/canary.ts report --results results
