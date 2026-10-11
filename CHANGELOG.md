@@ -22,7 +22,7 @@ All notable changes to Better Grok Bot are documented here.
 
 ### Fixed
 
-- Windows `uninstall --purge` deletes DATA with an encoded PowerShell `Remove-Item -LiteralPath` instead of `cmd.exe`, so characters in the path cannot change the command.
+- Windows `uninstall --purge` deletes everything outside `DATA\bin` right away (unlinking the `current` junction without following it), then removes the rest once `bgb.exe` has exited with an encoded PowerShell `Remove-Item -LiteralPath` instead of `cmd.exe`, so characters in the path cannot change the command.
 - `uninstall --purge` keeps DATA while a hook it does not own still points at this install's renderer.
 - The build key hashes exactly the plugin files the build assembles, so a plugin replaced mid-build can no longer leave a cached renderer with stale plugin code.
 - Plugin install, update and uninstall swap the package and commit its grant as one step under the build lock, so concurrent operations cannot leave mismatched grants or bring back an uninstalled plugin; approving an update's new permissions fails if the plugin was uninstalled or replaced after the prompt.

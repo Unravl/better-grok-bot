@@ -14,13 +14,14 @@
  * runner) is passed to setup and skips the login simulation.
  */
 import { existsSync } from "node:fs";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import * as path from "node:path";
 import { parseArgs } from "node:util";
 import { hookedUrl, parseExec, unwrapEnv } from "../core/platform/desktop-entry.ts";
 import { dataPaths, defaultDataDir, rendererUrl } from "../core/paths.ts";
 import { runPowerShell } from "../core/powershell.ts";
+import { PURGE_LOG } from "../core/setup/uninstall.ts";
 import { BRIDGE_PROTOCOL, type HelloFrame } from "../sdk/index.ts";
 import { mergeEnv, REPO_ROOT, run, runMain, ScriptError, TIMED_OUT, within } from "./lib.ts";
 
@@ -776,7 +777,7 @@ await runMain("e2e", async () => {
 		await step("12 uninstall", async () => {
 			await quitApp();
 			live.uninstalled = true;
-			await bgb(["uninstall", "--purge", "--yes"], { timeoutMs: 120_000 });
+			const uninstallOut = (await bgb(["uninstall", "--purge", "--yes"], { timeoutMs: 120_000 })).trim();
 			if (os === "darwin") {
 				check((await launchctlGetenv()) === "", `launchctl still has ${HOOK_ENV}`);
 				for (const label of [AGENT_LABEL, LOGIN_LABEL]) check(!existsSync(macPlist(label)), `${macPlist(label)} still exists`);
@@ -793,7 +794,15 @@ await runMain("e2e", async () => {
 			await Bun.sleep(10_000);
 			const leftovers = (await processNames()).filter((name) => BGB_PROCESS.test(name) || HELPER_PROCESS.test(name));
 			check(leftovers.length === 0, `still running: ${leftovers.join(", ")}`);
-			check(!existsSync(paths.root), `${paths.root} still exists after --purge`);
+			const gone = await poll("DATA removal", 60_000, async () => (existsSync(paths.root) ? null : true), 2_000).catch(() => false);
+			if (!gone) {
+				const remaining = (await readdir(paths.root, { recursive: true }).catch((error: unknown) => [String(error)])).slice(0, 40);
+				const purgeLog = path.join(tmpdir(), PURGE_LOG);
+				const deferred = existsSync(purgeLog) ? (await readFile(purgeLog, "utf8")).trim() : "no deferred-delete log";
+				throw new ScriptError(
+					`${paths.root} still exists 70 s after --purge\nremaining: ${remaining.join(", ")}\nuninstall output: ${uninstallOut}\n${deferred}`,
+				);
+			}
 		}, { timeoutMs: 300_000 });
 	} finally {
 		live.cdp?.close();

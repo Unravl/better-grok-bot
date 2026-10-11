@@ -1,9 +1,9 @@
-import { rm } from "node:fs/promises";
+import { readdir, rm, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import type { CoreContext } from "../context.ts";
 import { errorMessage } from "../errors.ts";
-import { rendererUrl } from "../paths.ts";
+import { type DataPaths, rendererUrl } from "../paths.ts";
 import type { HookRecord } from "../platform/types.ts";
 import { psQuote } from "../platform/win32.ts";
 import { mutateState, readState } from "../state.ts";
@@ -12,17 +12,49 @@ import { removePathEntry } from "./path-entry.ts";
 
 const HELPER_LABEL = "io.github.unravl.bettergrokbot.helper";
 
+/** The file in the temp folder where the deferred Windows delete records why `DATA` survived. */
+export const PURGE_LOG = "bgb-uninstall.log";
+
 /**
- * The argv of a detached PowerShell that waits for `pid` to exit, then deletes `dir`. The script is
- * passed as `-EncodedCommand` (base64 UTF-16LE) and the path as a literal, so nothing shell-parses it.
+ * The argv of a detached PowerShell that waits for `pid` to exit, then deletes `dir`, retrying while
+ * Windows still holds the just-exited exe. If `dir` survives, the last error goes to `log` (a
+ * previous run's log is removed first). The script is passed as `-EncodedCommand` (base64 UTF-16LE)
+ * and the paths as literals, so nothing shell-parses them.
  */
-export function deferredDeleteCommand(pid: number, dir: string): string[] {
+export function deferredDeleteCommand(pid: number, dir: string, log: string): string[] {
 	const script = [
+		`$p = ${psQuote(dir)}`,
+		`$log = ${psQuote(log)}`,
+		"Remove-Item -LiteralPath $log -Force -ErrorAction SilentlyContinue",
 		`Wait-Process -Id ${pid} -ErrorAction SilentlyContinue`,
-		`Remove-Item -LiteralPath ${psQuote(dir)} -Recurse -Force -ErrorAction SilentlyContinue`,
-	].join("; ");
+		"$err = $null",
+		"for ($i = 0; $i -lt 20 -and (Test-Path -LiteralPath $p); $i++) {",
+		"\ttry { Remove-Item -LiteralPath $p -Recurse -Force -ErrorAction Stop } catch { $err = $_; Start-Sleep -Milliseconds 500 }",
+		"}",
+		'if (Test-Path -LiteralPath $p) { Set-Content -LiteralPath $log -Value "could not delete ${p}: $err" }',
+	].join("\n");
 	const encoded = Buffer.from(script, "utf16le").toString("base64");
 	return ["powershell.exe", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-EncodedCommand", encoded];
+}
+
+/**
+ * Deletes everything in `DATA` except `bin`, which holds the running exe: the `current` junctions
+ * first (unlinked, never followed), then the rest. Windows PowerShell's `Remove-Item -Recurse`
+ * mishandles junctions and is slow on build trees, so the deferred delete is left only `bin`.
+ * Returns what could not be deleted yet; the deferred delete retries it once this process has exited.
+ */
+export async function clearDataExceptBin(paths: DataPaths): Promise<string[]> {
+	const junctions = [paths.current, `${paths.current}.new`, `${paths.current}.old`];
+	const rest = (await readdir(paths.root)).map((name) => path.join(paths.root, name)).filter((entry) => entry !== paths.bin && !junctions.includes(entry));
+	const failures: string[] = [];
+	for (const entry of [...junctions, ...rest]) {
+		try {
+			await (junctions.includes(entry) ? unlink(entry) : rm(entry, { recursive: true, force: true }));
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code !== "ENOENT") failures.push(`${entry}: ${errorMessage(error)}`);
+		}
+	}
+	return failures;
 }
 
 /**
@@ -122,8 +154,10 @@ export async function runUninstall(
 
 	if (opts.purge) {
 		if (platform.id === "win32") {
-			// This exe lives in DATA\bin and can't be deleted while it runs: delete DATA once it has exited.
-			Bun.spawn(deferredDeleteCommand(process.pid, paths.root), {
+			// This exe lives in DATA\bin and can't be deleted while it runs: delete the rest now and DATA
+			// once it has exited.
+			for (const failure of await clearDataExceptBin(paths)) host.print(`Deleting after exit instead: ${failure}`);
+			Bun.spawn(deferredDeleteCommand(process.pid, paths.root, path.join(tmpdir(), PURGE_LOG)), {
 				cwd: tmpdir(),
 				detached: true,
 				stdio: ["ignore", "ignore", "ignore"],

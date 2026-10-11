@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { type CoreContext, createContext } from "../context.ts";
@@ -9,7 +9,7 @@ import { rendererUrl } from "../paths.ts";
 import type { HookRecord, PlatformAdapter } from "../platform/types.ts";
 import { mutateState, readState } from "../state.ts";
 import { type Call, type FakeHost, fakeHost, recordingAdapter } from "./test-fakes.ts";
-import { deferredDeleteCommand, runUninstall } from "./uninstall.ts";
+import { clearDataExceptBin, deferredDeleteCommand, runUninstall } from "./uninstall.ts";
 
 let root: string;
 let calls: Call[];
@@ -109,11 +109,35 @@ test("--purge keeps DATA and the hook record while a foreign entry still points 
 	expect(host.err.some((line) => line.includes("still hooked to"))).toBe(true);
 });
 
-test("the deferred Windows delete passes the DATA path as a PowerShell literal", () => {
+test("the deferred Windows delete passes the DATA and log paths as PowerShell literals", () => {
 	const dir = "C:\\Users\\a b\\x&y %USERPROFILE% $env:TEMP it's";
-	const argv = deferredDeleteCommand(4242, dir);
+	const argv = deferredDeleteCommand(4242, dir, "C:\\Temp\\o'k\\bgb-uninstall.log");
 	expect(argv.slice(0, -1)).toEqual(["powershell.exe", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-EncodedCommand"]);
 	const script = Buffer.from(argv.at(-1) ?? "", "base64").toString("utf16le");
 	expect(script).toContain("Wait-Process -Id 4242");
-	expect(script).toContain(`-LiteralPath 'C:\\Users\\a b\\x&y %USERPROFILE% $env:TEMP it''s' -Recurse`);
+	expect(script).toContain("$p = 'C:\\Users\\a b\\x&y %USERPROFILE% $env:TEMP it''s'");
+	expect(script).toContain("$log = 'C:\\Temp\\o''k\\bgb-uninstall.log'");
+	expect(script).toContain("Remove-Item -LiteralPath $p -Recurse -Force");
+});
+
+test("the Windows purge clears DATA except bin without following the current junction", async () => {
+	const ctx = await context();
+	const { paths } = ctx;
+	const build = path.join(paths.builds, "k1", "renderer");
+	await mkdir(build, { recursive: true });
+	await writeFile(path.join(build, "index.html"), "x");
+	await symlink(path.join(paths.builds, "k1"), paths.current, "junction");
+	await mkdir(paths.bin, { recursive: true });
+	await writeFile(path.join(paths.bin, "bgb.exe"), "exe");
+	await mkdir(path.join(paths.plugins, "p"), { recursive: true });
+	const outside = path.join(root, "outside");
+	await mkdir(outside);
+	await writeFile(path.join(outside, "keep"), "k");
+	await symlink(outside, `${paths.current}.old`, "junction");
+
+	expect(await clearDataExceptBin(paths)).toEqual([]);
+
+	expect(await readdir(paths.root)).toEqual(["bin"]);
+	expect(await readdir(paths.bin)).toEqual(["bgb.exe"]);
+	expect(await readdir(outside)).toEqual(["keep"]);
 });
