@@ -1,5 +1,26 @@
 {
 	"version": 1,
 	"tag": "helper-v1",
-	"assets": {}
+	"assets": {
+		"darwin-universal": {
+			"name": "bgb-helper-macos-universal.zip",
+			"sha256": "2793b62b6bac971c9ca0e0d6ce452373de44f691c8a723503574a8aea7386397"
+		},
+		"windows-x64": {
+			"name": "bgb-helper-windows-x64.exe",
+			"sha256": "ce267662eb5acdc6d7db6ce5fe3775a74a36194ecf70d150999e884c98b1190b"
+		},
+		"windows-arm64": {
+			"name": "bgb-helper-windows-arm64.exe",
+			"sha256": "24238c0f644369d6aa32123df228b11e7f220b48a098ca122e1ebd9cd3bc94ab"
+		},
+		"linux-x64": {
+			"name": "bgb-helper-linux-x64",
+			"sha256": "ab5b23013de738a6dfd28dec1df136f0e333bf675c4cf617c10119b227dfb8e3"
+		},
+		"linux-arm64": {
+			"name": "bgb-helper-linux-arm64",
+			"sha256": "573470d4ac1108d80dcc4836f48729e96c62b357de9c2c821b69d3b6e64e4217"
+		}
+	}
 }
