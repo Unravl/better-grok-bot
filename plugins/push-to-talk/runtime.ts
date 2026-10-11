@@ -129,6 +129,8 @@ const BACKGROUND_ROW_LABEL = "Background key";
 const GROK_LEVEL_ROW_LABEL = "Music while Grok talks";
 const USER_LEVEL_ROW_LABEL = "Music while I talk";
 const INSTALL_BUTTON_LABEL = "Install key helper";
+/** The talk button's glyph: a five-bar waveform in a 16px box, as in the README illustration. */
+const WAVEFORM_PATH = "M2 6.5v3M5 4v8M8 2v12M11 4v8M14 6.5v3";
 
 const OS_NAMES: Record<Platform, string> = { darwin: "macOS", win32: "Windows", linux: "Linux" };
 const MODIFIER_NAMES: Record<Platform, Record<string, string>> = {
@@ -769,7 +771,11 @@ export function createPushToTalk(ctx: PluginContext) {
 		}
 	};
 
-	/** Hold-to-talk button in the voice call controls; also shows when a turn is live. */
+	/**
+	 * Hold-to-talk button in the voice call controls, which also shows when a turn is live: a brand gradient circle
+	 * (`bgb-push-to-talk__talk`) followed by a "Hold <key> to talk" hint (`bgb-push-to-talk__hint`). The hint stays
+	 * hidden unless a host with room for it lays it out (the voice dock does).
+	 */
 	const CallButton: ComponentFactory = (deps) => {
 		const { React, jsx, Tooltip, IconButton, pressedStyle } = deps;
 		if (Tooltip === undefined || IconButton === undefined) {
@@ -796,29 +802,65 @@ export function createPushToTalk(ctx: PluginContext) {
 			},
 			onBlur: (): void => release("button-key"),
 		};
+		const glyph = jsx("svg", {
+			"aria-hidden": true,
+			className: "bgb-push-to-talk__glyph",
+			fill: "none",
+			viewBox: "0 0 16 16",
+			children: jsx("path", {
+				d: WAVEFORM_PATH,
+				stroke: "currentColor",
+				strokeLinecap: "round",
+				strokeLinejoin: "round",
+				strokeWidth: 1.7,
+			}),
+		});
 		return function PushToTalkButton() {
 			const state = React.useSyncExternalStore(subscribeSnapshot, getSnapshot);
 			const binding = React.useSyncExternalStore(subscribeBinding, readBinding);
 			if (!state.available) return null;
-			const label = `Hold ${describeKey(binding, platform)} to talk`;
-			return jsx(Tooltip, {
-				content: label,
-				children: jsx(IconButton, {
-					...handlers,
-					"aria-label": label,
-					"aria-pressed": state.talking,
-					"data-push-to-talk": state.talking ? "talking" : "idle",
-					icon: "waveform",
-					shape: "circle",
-					size: "lg",
-					style: state.talking && pressedStyle,
-					variant: "secondary",
-				}),
-			});
+			const key = describeKey(binding, platform);
+			const label = `Hold ${key} to talk`;
+			const mode = state.talking ? "talking" : "idle";
+			return [
+				jsx(
+					Tooltip,
+					{
+						content: label,
+						children: jsx(IconButton, {
+							...handlers,
+							"aria-label": label,
+							"aria-pressed": state.talking,
+							className: "bgb-push-to-talk__talk",
+							"data-push-to-talk": mode,
+							glyph,
+							shape: "circle",
+							size: "lg",
+							style: state.talking && pressedStyle,
+							variant: "secondary",
+						}),
+					},
+					"button",
+				),
+				jsx(
+					"div",
+					{
+						className: "bgb-push-to-talk__hint",
+						"data-push-to-talk": mode,
+						children: ["Hold ", jsx("kbd", { className: "bgb-push-to-talk__key", children: key }, "key"), " to talk"],
+					},
+					"hint",
+				),
+			];
 		};
 	};
 
-	/** Settings → General → System rows: the on/off switch, the key recorder, the music levels, and the background key status. */
+	/**
+	 * Settings → General → System rows: the on/off switch, the key recorder, the music levels, and the background key
+	 * status. The switch, the install button and every row but the music levels are the app's own. The recorder is a
+	 * keycap chip (`bgb-push-to-talk__key-chip`). Each music level is a whole row of its own
+	 * (`bgb-push-to-talk__level`) because its slider spans the row below the label.
+	 */
 	const SettingsRows: ComponentFactory = (deps) => {
 		const { React, jsx, Row, Toggle, Button, buttonTextStyle } = deps;
 		if (Row === undefined || Toggle === undefined || Button === undefined) {
@@ -827,13 +869,17 @@ export function createPushToTalk(ctx: PluginContext) {
 		const onToggle = (next: unknown): void => {
 			if (typeof next === "boolean") ctx.storage.set(ENABLED_KEY, next);
 		};
-		/** A 0–100% music level slider and its value; saves on release, or shortly after the last change. */
-		const levelSlider = (label: string, key: string, read: () => number, subscribe: (listener: () => void) => () => void) => {
+		/**
+		 * A music level row: the label with the level on its right, a full-width 0–100% slider under them, then the
+		 * description. Saves on release, or shortly after the last change.
+		 */
+		const levelRow = (label: string, key: string, read: () => number, subscribe: (listener: () => void) => () => void) => {
 			const commit = (percent: number): void => {
 				if (percent !== read()) ctx.storage.set(key, percent);
 			};
-			return function MusicLevelSlider(props: Record<string, unknown>) {
+			return function MusicLevelRow(props: Record<string, unknown>) {
 				const disabled = props.disabled === true;
+				const description = typeof props.description === "string" ? props.description : null;
 				const stored = React.useSyncExternalStore(subscribe, read);
 				const [draft, setDraft] = React.useState<number | null>(null);
 				React.useEffect(() => {
@@ -854,13 +900,26 @@ export function createPushToTalk(ctx: PluginContext) {
 					setDraft(null);
 				};
 				return jsx("div", {
-					style: { display: "flex", alignItems: "center", gap: 8 },
+					className: "bgb-push-to-talk__level",
+					"data-disabled": disabled || undefined,
 					children: [
+						jsx(
+							"div",
+							{
+								className: "bgb-push-to-talk__level-head",
+								children: [
+									jsx("span", { className: "bgb-push-to-talk__level-label", children: label }, "label"),
+									jsx("span", { className: "bgb-push-to-talk__level-value", children: `${percent}%` }, "value"),
+								],
+							},
+							"head",
+						),
 						jsx(
 							"input",
 							{
 								"aria-label": label,
 								"aria-valuetext": `${percent}%`,
+								className: "bgb-push-to-talk__range",
 								disabled,
 								max: 100,
 								min: 0,
@@ -869,37 +928,22 @@ export function createPushToTalk(ctx: PluginContext) {
 								onKeyUp: onRelease,
 								onPointerUp: onRelease,
 								step: 5,
-								style: {
-									width: 140,
-									margin: 0,
-									accentColor: "var(--cursor-text-primary)",
-									cursor: disabled ? "default" : "pointer",
-									opacity: disabled ? 0.5 : 1,
-								},
+								// The stylesheet draws the gradient fill up to this fraction of the track.
+								style: { "--bgb-push-to-talk-level": String(percent / 100) },
 								type: "range",
 								value: percent,
 							},
 							"slider",
 						),
-						jsx(
-							"span",
-							{
-								style: {
-									minWidth: "4ch",
-									textAlign: "right",
-									fontVariantNumeric: "tabular-nums",
-									color: "var(--cursor-text-secondary)",
-								},
-								children: `${percent}%`,
-							},
-							"value",
-						),
+						description === null
+							? null
+							: jsx("div", { className: "bgb-push-to-talk__level-description", children: description }, "description"),
 					],
 				});
 			};
 		};
-		const GrokLevelSlider = levelSlider(GROK_LEVEL_ROW_LABEL, GROK_LEVEL_KEY, readGrokPercent, subscribeGrokPercent);
-		const UserLevelSlider = levelSlider(USER_LEVEL_ROW_LABEL, USER_LEVEL_KEY, readUserPercent, subscribeUserPercent);
+		const GrokLevelRow = levelRow(GROK_LEVEL_ROW_LABEL, GROK_LEVEL_KEY, readGrokPercent, subscribeGrokPercent);
+		const UserLevelRow = levelRow(USER_LEVEL_ROW_LABEL, USER_LEVEL_KEY, readUserPercent, subscribeUserPercent);
 		return function PushToTalkSettings() {
 			const enabled = React.useSyncExternalStore(subscribeEnabled, readEnabled);
 			const binding = React.useSyncExternalStore(subscribeBinding, readBinding);
@@ -976,39 +1020,34 @@ export function createPushToTalk(ctx: PluginContext) {
 									? `${describeKey(binding, platform)} only works through the key helper below.`
 									: "Hold it while you talk, or hold the waveform button in a call. Click to change.",
 						variant: "card",
-						children: jsx(Button, {
+						children: jsx("button", {
 							"aria-label": `${KEY_ROW_LABEL}: ${describeKey(binding, platform)}`,
+							className: "bgb-push-to-talk__key-chip",
+							"data-recording": recording || undefined,
 							onClick: () => setRecording((previous) => !previous),
-							size: "md",
-							style: buttonTextStyle,
 							type: "button",
-							variant: "secondary",
 							children: recording ? "Press a key…" : describeKey(binding, platform),
 						}),
 					},
 					"key",
 				),
 				jsx(
-					Row,
+					GrokLevelRow,
 					{
-						label: GROK_LEVEL_ROW_LABEL,
 						description: duckDescription(mediaState, mediaDetail, "while Grok is speaking in a voice call"),
-						variant: "card",
-						children: jsx(GrokLevelSlider, { disabled: !duckSupported }),
+						disabled: !duckSupported,
 					},
 					"grok-level",
 				),
 				jsx(
-					Row,
+					UserLevelRow,
 					{
-						label: USER_LEVEL_ROW_LABEL,
 						description: duckDescription(
 							mediaState,
 							mediaDetail,
 							"while you talk (holding the push-to-talk key, or speaking in a call without it)",
 						),
-						variant: "card",
-						children: jsx(UserLevelSlider, { disabled: !duckSupported }),
+						disabled: !duckSupported,
 					},
 					"user-level",
 				),

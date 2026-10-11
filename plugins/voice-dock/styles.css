@@ -1,66 +1,87 @@
 /*
- * The app's voice-call popover, docked in the sidebar footer as one compact row (about 36px) that fits any
- * sidebar width.
+ * The app's voice-call popover, docked in the sidebar footer as the README hero's call card
+ * (docs/assets/hero.svg, the "Voice dock" card): a 16px-radius card on a raised surface, the sidebar footer's width.
  *
- * Root cause of the overflow: the floating popover sizes itself to its content (`width: max-content`, 320px when
- * failed) and every part of its row refuses to shrink: the frame has 12px padding and 16px gaps, the chrome row
- * a 24px gap and `flex-shrink: 0`, the activity area (avatar + waveform) `flex-shrink: 0` with a fixed 36px
- * avatar slot and a fixed 96px waveform, and the controls `flex-shrink: 0` with 44px buttons (the bot avatar
- * orb is drawn at its large size too). That is about 330px of unshrinkable content in a ~240px sidebar.
+ * Layout: the popover's wrappers (section, frame, chrome, activity) are `display: contents`, so the app's parts and
+ * the dock's own name and status line (runtime.ts) are items of one grid on `.bgb-voice-dock`, top to bottom:
+ * - the transcript / call settings tray, edge to edge (above the rows, so the buttons stay put while it opens);
+ * - the bot's avatar (26px), its name (14px semibold) over the status line (12px, muted: a 7px dot, the phase and,
+ *   once connected, the call timer), and on the right the app's waveform (or its connecting bar);
+ * - the app's fault line, when it shows one;
+ * - the buttons: 34px circles on the app's neutral fill, 16px icons, hang-up red at the right edge;
+ * - push to talk's "Hold <key> to talk" hint, when it renders one, as a full-width row under the buttons.
+ * A failed call shows only the app's alert (message and Dismiss); the dock adds no name or status then.
  *
- * Here: the panel and every flex child take the sidebar width with `min-width: 0`, the waveform shrinks first,
- * gaps and padding are tightened, and buttons, icons and the avatar are 24px. The app's atomic classes carry
- * high specificity, so overrides use !important; they apply only inside the dock.
+ * Overflow: the floating popover sizes itself to its content (`width: max-content`, 320px when failed) and none of
+ * its parts shrink (flex-shrink: 0 rows, 16-24px gaps, a fixed 96px waveform, 44px buttons): about 330px, where the
+ * narrowest sidebar (240px) leaves the card 182px inside its padding. Here the sidebar sets the width and every
+ * part fits it: the name column takes the name's natural width, the waveform only what is left (shrinking, then
+ * gone first), name and status ellipsize, and the buttons never shrink: 34px with 8px gaps (five need 202px), or
+ * 30px with 6px gaps (174px) when the button row is narrower than 206px (sidebars under ~264px). Should a theme
+ * narrow the footer further, the hang-up button wraps to a second line rather than overflow.
+ *
+ * The app's atomic classes carry high specificity, so overrides use !important; they apply only inside the dock.
  */
+
+:root {
+	--bgb-brand-violet: #8b5cf6;
+	--bgb-brand-indigo: #6366f1;
+	--bgb-brand-cyan: #22d3ee;
+	--bgb-brand-gradient: linear-gradient(90deg, var(--bgb-brand-violet), var(--bgb-brand-indigo) 52%, var(--bgb-brand-cyan));
+	--bgb-brand-gradient-diagonal: linear-gradient(135deg, var(--bgb-brand-violet), var(--bgb-brand-indigo) 52%, var(--bgb-brand-cyan));
+	--bgb-brand-soft: rgb(139 92 246 / 0.16);
+}
+
+/* Theme-following tokens; the hex values are the hero's dark fallbacks. */
 .bgb-voice-dock {
+	--bgb-voice-dock-surface: var(--sand-bg-elevated, var(--cursor-bg-elevated, #1b1b1f));
+	--bgb-voice-dock-border: var(--sand-border-weak, var(--cursor-stroke-secondary, rgb(255 255 255 / 0.09)));
+	--bgb-voice-dock-text: var(--sand-text-primary, var(--cursor-text-primary, #f2f2f4));
+	--bgb-voice-dock-muted: var(--sand-text-tertiary, var(--cursor-text-tertiary, #8b8b95));
+	--bgb-voice-dock-connected: var(--sand-fill-success, #22c55e);
+	--bgb-voice-dock-connecting: var(--sand-fill-warning, #f59e0b);
+}
+
+/* The card. */
+.bgb-voice-dock {
+	display: grid;
+	grid-template-columns: auto minmax(0, max-content) minmax(0, 1fr);
+	grid-template-areas:
+		"tray tray tray"
+		"head identity wave"
+		"fault fault fault"
+		"controls controls controls";
+	align-items: center;
+	column-gap: 10px;
+	box-sizing: border-box;
 	min-width: 0;
 	max-width: 100%;
-	margin-bottom: var(--cursor-spacing-2, 8px);
+	margin-bottom: var(--cursor-spacing-3, 12px);
+	padding: 12px;
+	border: 1px solid var(--bgb-voice-dock-border);
+	border-radius: 16px;
+	background-color: var(--bgb-voice-dock-surface);
+	/* The popover's section carried this; as `display: contents` it no longer has a box to carry it. */
+	-webkit-app-region: no-drag;
+}
+
+/* The popover's wrappers step aside, so their parts become the card's grid items. */
+.bgb-voice-dock [data-voice-call-popover],
+.bgb-voice-dock [data-voice-call-frame],
+.bgb-voice-dock [data-voice-call-chrome],
+.bgb-voice-dock [data-voice-call-activity] {
+	display: contents !important;
 }
 
 .bgb-voice-dock [data-voice-call-popover] {
-	position: relative !important;
-	position-anchor: none !important;
-	position-area: none !important;
-	inset: auto !important;
-	margin: 0 !important;
-	z-index: auto !important;
-	box-sizing: border-box !important;
-	width: 100% !important;
-	min-width: 0 !important;
-	max-width: 100% !important;
-	border-radius: 18px !important;
+	position: static !important;
 }
 
-.bgb-voice-dock [data-voice-call-frame] {
-	box-sizing: border-box !important;
-	width: 100% !important;
-	min-width: 0 !important;
-	padding: 6px 6px 6px 8px !important;
-	gap: 6px !important;
-}
-
-/* Status (avatar + waveform) on the left, shrinking; controls on the right, always whole. */
-.bgb-voice-dock [data-voice-call-chrome] {
-	width: 100% !important;
-	min-width: 0 !important;
-	flex-shrink: 1 !important;
-	gap: 6px !important;
-	justify-content: space-between !important;
-}
-
-.bgb-voice-dock [data-voice-call-activity] {
-	flex: 1 1 auto !important;
-	min-width: 0 !important;
-	padding-inline-start: 0 !important;
-	gap: 6px !important;
-	overflow: hidden !important;
-}
-
+/* The bot's avatar (the app's own, animated with the call's activity). */
 .bgb-voice-dock [data-voice-call-head] {
-	flex-shrink: 0 !important;
-	width: 24px !important;
-	height: 24px !important;
+	grid-area: head;
+	width: 26px !important;
+	height: 26px !important;
 	overflow: hidden !important;
 	border-radius: 9999px !important;
 	align-items: center !important;
@@ -68,55 +89,193 @@
 }
 
 .bgb-voice-dock [data-voice-call-head] > * {
-	width: 24px !important;
-	height: 24px !important;
-	max-width: 24px !important;
-	max-height: 24px !important;
+	width: 26px !important;
+	height: 26px !important;
+	max-width: 26px !important;
+	max-height: 26px !important;
 }
 
+/* Name over status (runtime.ts); without an avatar (bot not in the roster yet) it starts at the card's edge. */
+.bgb-voice-dock__identity {
+	grid-area: identity;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.bgb-voice-dock:not(:has([data-voice-call-head])) .bgb-voice-dock__identity {
+	grid-column: head / identity;
+}
+
+.bgb-voice-dock__name,
+.bgb-voice-dock__status-text {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.bgb-voice-dock__name {
+	font-size: 14px;
+	font-weight: 600;
+	line-height: 18px;
+	color: var(--bgb-voice-dock-text);
+}
+
+.bgb-voice-dock__status {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	min-width: 0;
+	font-size: 12px;
+	line-height: 16px;
+	color: var(--bgb-voice-dock-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.bgb-voice-dock__dot {
+	flex: none;
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background-color: var(--bgb-voice-dock-connected);
+}
+
+.bgb-voice-dock__status[data-tone="connecting"] .bgb-voice-dock__dot {
+	background-color: var(--bgb-voice-dock-connecting);
+}
+
+.bgb-voice-dock__status[data-tone="ending"] .bgb-voice-dock__dot {
+	background-color: var(--bgb-voice-dock-muted);
+}
+
+/* Waveform (live) or the connecting bar: whatever the name and status leave, up to the app's 96px. */
 .bgb-voice-dock [data-voice-call-wave] {
-	flex: 1 1 auto !important;
-	width: auto !important;
+	grid-area: wave;
+	justify-self: end;
+	width: 100% !important;
 	min-width: 0 !important;
 	max-width: 96px !important;
-	height: 20px !important;
 	overflow: hidden !important;
 }
 
+/* A call fault (the app's warning line), under the name. */
+.bgb-voice-dock [data-voice-call-fault] {
+	grid-area: fault;
+	margin-top: 8px;
+	font-size: 12px !important;
+	line-height: 16px !important;
+	text-align: start !important;
+}
+
+/* A failed call: the app's alert takes the card's width. */
+.bgb-voice-dock [data-voice-call-failure] {
+	grid-row: 2;
+	grid-column: 1 / -1;
+}
+
+.bgb-voice-dock [data-voice-call-fault],
+.bgb-voice-dock [data-voice-call-failure] {
+	min-width: 0 !important;
+	max-width: 100% !important;
+}
+
+/*
+ * The buttons. Spacing is each button's end margin rather than `gap`, so the size query below (on this row) can
+ * narrow it. The hint (order 1, full basis) wraps onto its own line.
+ */
 .bgb-voice-dock [data-voice-call-controls] {
-	flex-shrink: 0 !important;
-	gap: 4px !important;
+	grid-area: controls;
+	container: bgb-voice-dock-controls / inline-size;
+	flex-wrap: wrap !important;
+	align-items: center !important;
+	gap: 8px 0 !important;
+	min-width: 0 !important;
+	margin-top: 12px;
 }
 
 .bgb-voice-dock [data-voice-call-controls] button {
-	flex-shrink: 0 !important;
-	width: 24px !important;
-	height: 24px !important;
+	flex: none !important;
+	box-sizing: border-box !important;
+	width: 34px !important;
+	height: 34px !important;
 	min-width: 0 !important;
+	margin-inline-end: 8px !important;
 	padding: 0 !important;
+	border-radius: 9999px !important;
 }
 
-/* Icons and the muted-mic glyph: one size for every button. */
+/* Hang up (the app's red circle and white glyph): pushed to the right edge. */
+.bgb-voice-dock [data-voice-call-controls] button:has([data-icon-name="x"]) {
+	margin-inline: auto 0 !important;
+}
+
+/* Icons, the muted-mic glyph and push to talk's glyph: 16px. */
 .bgb-voice-dock [data-voice-call-controls] button > svg,
 .bgb-voice-dock [data-voice-call-controls] button > :first-child {
-	width: 14px !important;
-	height: 14px !important;
-	max-width: 14px !important;
-	max-height: 14px !important;
+	width: 16px !important;
+	height: 16px !important;
+	max-width: 16px !important;
+	max-height: 16px !important;
 }
 
-/* Failure message: wraps within the sidebar. */
-.bgb-voice-dock [data-voice-call-frame] > * {
-	min-width: 0 !important;
-	max-width: 100% !important;
+.bgb-voice-dock [data-voice-call-controls] [data-icon-name] {
+	--icon-size: 16px !important;
 }
 
-/* The transcript / call settings tray: the sidebar's width, and not the whole sidebar's height. */
+/* The app's neutral fill and hover stay; glyphs take the primary text colour, as in the hero. */
+.bgb-voice-dock [data-voice-call-controls] button:not(.bgb-push-to-talk__talk, :disabled, :has([data-icon-name="x"])) {
+	color: var(--bgb-voice-dock-text) !important;
+}
+
+/* Muted: the mic button (its glyph is the app's muted-mic mark, not an icon) inverts. */
+.bgb-voice-dock[data-muted] [data-voice-call-controls] button:not(.bgb-push-to-talk__talk, :has([data-icon-name])) {
+	background-color: var(--bgb-voice-dock-text) !important;
+	color: var(--bgb-voice-dock-surface) !important;
+}
+
+/* The toggle of the open tray (transcript or call settings): the brand accent. */
+.bgb-voice-dock [data-voice-call-controls] button[aria-expanded="true"] {
+	background-color: var(--bgb-brand-soft) !important;
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bgb-brand-violet) 50%, transparent) !important;
+	color: var(--bgb-brand-violet) !important;
+}
+
+.bgb-voice-dock [data-voice-call-controls] button:focus-visible {
+	outline: 2px solid var(--bgb-brand-violet) !important;
+	outline-offset: 2px !important;
+}
+
+/* Push to talk's hint (its look is push to talk's): a full-width row under the buttons. */
+.bgb-voice-dock .bgb-push-to-talk__hint {
+	display: flex;
+	align-items: center;
+	order: 1;
+	flex: 0 0 100%;
+	min-width: 0;
+}
+
+/* A narrow button row (five 34px buttons need 202px): 30px circles, 6px apart. */
+@container bgb-voice-dock-controls (max-width: 205px) {
+	.bgb-voice-dock [data-voice-call-controls] button {
+		width: 30px !important;
+		height: 30px !important;
+		margin-inline-end: 6px !important;
+	}
+}
+
+/*
+ * The transcript / call settings tray, above the card's rows and edge to edge (its content has its own padding);
+ * not the whole sidebar's height. Its divider moves under it.
+ */
 .bgb-voice-dock [data-voice-call-tray-panel] {
+	grid-area: tray;
 	box-sizing: border-box !important;
-	width: 100% !important;
+	width: auto !important;
 	min-width: 0 !important;
-	max-width: 100% !important;
+	max-width: none !important;
+	margin-inline: -12px;
+	border-radius: 15px 15px 0 0;
 }
 
 .bgb-voice-dock [data-voice-call-tray-panel] * {
@@ -126,5 +285,28 @@
 
 .bgb-voice-dock [data-voice-call-tray-panel="open"] {
 	max-height: min(320px, 45vh) !important;
+	margin-block: -12px 12px;
 	overflow: auto !important;
+}
+
+.bgb-voice-dock [data-voice-call-tray-panel] :is([data-voice-call-settings], [data-voice-call-autoscroll]) {
+	border-top-style: none !important;
+	border-bottom: 0.5px solid var(--bgb-voice-dock-border) !important;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	/* The tray's margins follow its own open/close transition (the app's duration and easing). */
+	.bgb-voice-dock [data-voice-call-tray-panel] {
+		transition-property: grid-template-rows, margin-top, margin-bottom !important;
+	}
+
+	.bgb-voice-dock__status[data-tone="connecting"] .bgb-voice-dock__dot {
+		animation: bgb-voice-dock-pulse 1.2s ease-in-out infinite;
+	}
+}
+
+@keyframes bgb-voice-dock-pulse {
+	50% {
+		opacity: 0.35;
+	}
 }

@@ -30,7 +30,16 @@ interface UsageStore {
 export type BarView =
 	| { kind: "hidden" }
 	| { kind: "loading" }
-	| { kind: "meter"; percent: number; label: string; level: "normal" | "high" | "full"; resetLabel: string | null };
+	| {
+			kind: "meter";
+			percent: number;
+			label: string;
+			level: "normal" | "high" | "full";
+			/** Relative reset, shown inline after the percentage ("Resets in 3 days"). */
+			resetLabel: string | null;
+			/** Exact reset date and time for the hover title; null when unknown or already past. */
+			resetTitle: string | null;
+	  };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** How often the mounted bar asks the store to revalidate (the store throttles on its own too). */
@@ -51,12 +60,21 @@ export function formatPercent(percent: number): string {
 	return new Intl.NumberFormat(undefined, { style: "percent" }).format(shown / 100);
 }
 
+/** Relative reset wording: whole days rounded up ("Resets in 1 day", "Resets in 3 days"), "Resets soon" once past, null when unknown. */
 export function resetLabel(resetMs: number | null | undefined, nowMs: number): string | null {
 	if (resetMs == null || !Number.isFinite(resetMs)) return null;
 	const remaining = resetMs - nowMs;
 	if (remaining <= 0) return "Resets soon";
 	const days = Math.ceil(remaining / DAY_MS);
 	return days === 1 ? "Resets in 1 day" : `Resets in ${days} days`;
+}
+
+const RESET_DATE_FORMAT: Intl.DateTimeFormatOptions = { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" };
+
+/** Exact reset moment in the user's locale ("Resets Mon, Oct 19, 9:00 AM"), or null when unknown or already past. */
+export function resetTitle(resetMs: number | null | undefined, nowMs: number): string | null {
+	if (resetMs == null || !Number.isFinite(resetMs) || resetMs <= nowMs) return null;
+	return `Resets ${new Intl.DateTimeFormat(undefined, RESET_DATE_FORMAT).format(resetMs)}`;
 }
 
 export function barView(snapshot: UsageSnapshot | undefined, nowMs: number): BarView {
@@ -75,6 +93,7 @@ export function barView(snapshot: UsageSnapshot | undefined, nowMs: number): Bar
 		label: formatPercent(raw),
 		level: percent >= 100 ? "full" : percent >= 80 ? "high" : "normal",
 		resetLabel: resetLabel(summary.sandUsageResetTimestampMs, nowMs),
+		resetTitle: resetTitle(summary.sandUsageResetTimestampMs, nowMs),
 	};
 }
 
@@ -123,38 +142,31 @@ function createWeeklyUsage(ctx: PluginContext) {
 			if (view.kind === "hidden") return null;
 			const loading = view.kind === "loading";
 			const percent = loading ? 0 : view.percent;
-			const valueText = loading ? "" : view.label;
-			const title = loading ? undefined : (view.resetLabel ?? undefined);
+			const reset = loading ? null : view.resetLabel;
+			const header = [jsx("span", { className: "bgb-weekly-usage__title", children: "Weekly usage" }, "title")];
+			if (!loading) {
+				header.push(jsx("span", { className: "bgb-weekly-usage__percent", children: view.label }, "percent"));
+				if (reset !== null) header.push(jsx("span", { className: "bgb-weekly-usage__reset", children: reset }, "reset"));
+			}
 			return jsx("div", {
 				className: "bgb-weekly-usage",
 				"data-level": loading ? "loading" : view.level,
-				title,
+				title: loading ? undefined : (view.resetTitle ?? undefined),
 				children: [
+					jsx("div", { className: "bgb-weekly-usage__header", children: header }, "header"),
 					jsx(
 						"div",
 						{
-							className: "bgb-weekly-usage__header",
-							children: [
-								jsx("span", { className: "bgb-weekly-usage__title", children: "Weekly usage" }, "title"),
-								jsx("span", { className: "bgb-weekly-usage__value", children: valueText }, "value"),
-							],
-						},
-						"header",
-					),
-					jsx(
-						"div",
-						{
-							className: "bgb-weekly-usage__track sand-9f619 sand-qu0tyb sand-b3r6kr sand-1i4c3av sand-25lytf",
+							className: "bgb-weekly-usage__track",
 							role: "meter",
-							"aria-label": loading ? "Weekly usage, loading" : `Weekly usage ${view.label}`,
+							"aria-label": loading
+								? "Weekly usage, loading"
+								: `Weekly usage ${view.label}${reset === null ? "" : `, ${reset.toLowerCase()}`}`,
 							"aria-valuemin": 0,
 							"aria-valuemax": 100,
 							"aria-valuenow": loading ? undefined : percent,
 							"aria-busy": loading || undefined,
-							children: jsx("div", {
-								className: "bgb-weekly-usage__fill sand-9f619 sand-5yr21d sand-1i4c3av",
-								style: { width: `${percent}%` },
-							}),
+							children: jsx("div", { className: "bgb-weekly-usage__fill", style: { width: `${percent}%` } }),
 						},
 						"track",
 					),

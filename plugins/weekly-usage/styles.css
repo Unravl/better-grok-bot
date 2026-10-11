@@ -1,54 +1,93 @@
-/* Weekly usage bar above Connect Apps. Track and fill reuse the app's Settings → Usage meter classes
-   (4px, full radius, control-track background); the fill colour is set here so it can change near the limit; this file only lays out the label row. */
+:root {
+	--bgb-brand-violet: #8b5cf6;
+	--bgb-brand-indigo: #6366f1;
+	--bgb-brand-cyan: #22d3ee;
+	--bgb-brand-gradient: linear-gradient(90deg, var(--bgb-brand-violet), var(--bgb-brand-indigo) 52%, var(--bgb-brand-cyan));
+	--bgb-brand-gradient-diagonal: linear-gradient(135deg, var(--bgb-brand-violet), var(--bgb-brand-indigo) 52%, var(--bgb-brand-cyan));
+	--bgb-brand-soft: rgb(139 92 246 / 0.16);
+}
+
+/* Weekly usage bar above Connect Apps: a "Weekly usage · 42% · Resets in 3 days" row over a 6px track whose
+   fill carries the brand gradient, turning orange near the limit and red when used up. */
 .bgb-weekly-usage {
 	display: flex;
 	flex-direction: column;
-	gap: var(--cursor-spacing-1, 4px);
+	gap: 6px;
 	min-width: 0;
 	padding: 0 var(--cursor-spacing-1, 4px);
-	margin-bottom: var(--cursor-spacing-2, 8px);
+	margin-bottom: 12px;
 	cursor: default;
 	user-select: none;
 }
 
+/* Title left, percentage and reset right. When space runs out the reset truncates first, then the title. */
 .bgb-weekly-usage__header {
 	display: flex;
 	align-items: baseline;
-	justify-content: space-between;
-	gap: var(--cursor-spacing-2, 8px);
-	font-size: var(--cursor-font-size-xs, 11px);
-	line-height: var(--cursor-line-height-xs, 16px);
-	color: var(--cursor-text-secondary);
-}
-
-.bgb-weekly-usage__title {
-	overflow: hidden;
-	text-overflow: ellipsis;
+	min-width: 0;
+	font-size: var(--cursor-font-size-sm, 12px);
+	line-height: var(--cursor-line-height-sm, 16px);
+	color: var(--cursor-text-tertiary, #8b8b95);
+	font-variant-numeric: tabular-nums;
 	white-space: nowrap;
 }
 
-.bgb-weekly-usage__value {
-	flex-shrink: 0;
-	font-variant-numeric: tabular-nums;
-	font-weight: var(--cursor-font-weight-medium, 500);
-	color: var(--cursor-text-primary);
+.bgb-weekly-usage__title {
+	flex: 0 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	font-weight: var(--cursor-font-weight-semibold, 600);
+	color: var(--cursor-text-secondary, #c9c9d1);
+}
+
+.bgb-weekly-usage__percent {
+	flex: none;
+	margin-left: auto;
+	padding-left: var(--cursor-spacing-2, 8px);
+}
+
+.bgb-weekly-usage__reset {
+	flex: 0 100 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.bgb-weekly-usage__reset::before {
+	content: "\00a0·\00a0" / "";
+}
+
+.bgb-weekly-usage__track {
+	box-sizing: border-box;
+	height: 6px;
+	overflow: hidden;
+	border-radius: 3px;
+	background-color: var(--sand-fill-control-track, rgb(255 255 255 / 0.1));
 }
 
 .bgb-weekly-usage__fill {
-	background-color: var(--cursor-bg-blue-primary);
+	height: 100%;
+	border-radius: 3px;
+	background: var(--bgb-brand-gradient);
 	transition: width 240ms ease;
 }
 
 .bgb-weekly-usage[data-level="high"] .bgb-weekly-usage__fill {
-	background-color: var(--cursor-bg-orange-primary);
+	background: linear-gradient(
+		90deg,
+		color-mix(in srgb, var(--cursor-bg-orange-primary, #f97316) 60%, #facc15),
+		var(--cursor-bg-orange-primary, #f97316)
+	);
 }
 
 .bgb-weekly-usage[data-level="full"] .bgb-weekly-usage__fill {
-	background-color: var(--cursor-bg-red-primary);
+	background: var(--cursor-bg-red-primary, #ef4444);
 }
 
-.bgb-weekly-usage[data-level="full"] .bgb-weekly-usage__value {
-	color: var(--cursor-text-red-primary);
+.bgb-weekly-usage[data-level="full"] .bgb-weekly-usage__percent,
+.bgb-weekly-usage[data-level="full"] .bgb-weekly-usage__reset {
+	color: var(--cursor-text-red-primary, #f87171);
 }
 
 .bgb-weekly-usage[data-level="loading"] .bgb-weekly-usage__track {

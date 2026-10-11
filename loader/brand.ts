@@ -80,15 +80,15 @@ export function createSidebarBrand(jsx: JsxFn): () => unknown {
 	};
 }
 
-export const BRAND_CSS = `/* Agents sidebar: the Better Grok Bot label between the header buttons and the primary bot. */
+export const BRAND_CSS = `/* Agents sidebar: the Better Grok Bot title between the header buttons and the bot list, as in the README hero. */
 .bgb-brand-label {
 	flex-shrink: 0;
-	padding: 0 16px 10px;
-	color: var(--cursor-text-primary);
-	font-size: 15px;
-	font-weight: 600;
-	letter-spacing: 0.01em;
-	text-align: center;
+	padding: 4px 22px 12px;
+	color: var(--cursor-text-primary, #f5f5f7);
+	font-size: 19px;
+	font-weight: 700;
+	line-height: 24px;
+	text-align: start;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;

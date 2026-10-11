@@ -46,5 +46,13 @@ export default definePlugin({
 			},
 			expect: 1,
 		},
+		{
+			// The native counter renders "1/3"; the search pill reads "1 of 3" (also what screen readers announce).
+			id: "match-counter-wording",
+			file: ENTRY_CHUNK,
+			find: /(\.\.\.\i\(\i\.counter,\i\.label,\i===0&&\i\.counterEmpty\),children:\[\i,)"\/"(,\i\])/,
+			replace: '$1" of "$2',
+			expect: 1,
+		},
 	],
 });

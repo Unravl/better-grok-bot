@@ -1,40 +1,163 @@
-/* Insertion line while dragging a bot inside a sidebar section (folder). */
+:root {
+	--bgb-brand-violet: #8b5cf6;
+	--bgb-brand-indigo: #6366f1;
+	--bgb-brand-cyan: #22d3ee;
+	--bgb-brand-gradient: linear-gradient(90deg, var(--bgb-brand-violet), var(--bgb-brand-indigo) 52%, var(--bgb-brand-cyan));
+	--bgb-brand-gradient-diagonal: linear-gradient(135deg, var(--bgb-brand-violet), var(--bgb-brand-indigo) 52%, var(--bgb-brand-cyan));
+	--bgb-brand-soft: rgb(139 92 246 / 0.16);
+}
+
+/*
+ * Folders in the agents sidebar, after the README hero (docs/assets/hero.svg): a header row with a chevron, a
+ * folder outline, the name and the bot count, then the folder's bots indented beneath it.
+ *
+ * The app's sidebar sections (`__agents__` is its synthetic "Unassigned" section, which gets no folder icon):
+ *   div.sand-agents-section[data-section-id]
+ *     button.sand-agents-section__header[data-section-id][aria-expanded][data-bgb-bot-count]
+ *       span.ui-text: the name (an input while renaming)
+ *       span: the app's count while collapsed, then a span holding i[data-icon-name="chevron-right"]
+ *     div.sand-agents-section__reveal > div.sand-agents-section__rows > [role="listitem"] > button.sand-agent-item
+ * Its atomic classes carry ID-level specificity, so the properties they set are overridden with !important.
+ * Header (30px) and row (54px) heights stay the app's: its virtualised list computes scroll offsets from them.
+ */
+.sand-agents-section[data-section-id] {
+	--bgb-sidebar-folders-hover-fill: color-mix(in srgb, var(--cursor-text-primary, #f5f5f7) 6%, transparent);
+	--bgb-sidebar-folders-selected-fill: color-mix(in srgb, var(--cursor-text-primary, #f5f5f7) 8%, transparent);
+}
+
+.sand-agents-section__header[data-section-id] {
+	/* The chevron stays visible instead of appearing on hover only. */
+	--sand-section-chevron-opacity: 1;
+	--sand-fill-ghost-hover: var(--bgb-sidebar-folders-hover-fill);
+	border-radius: 11px !important;
+}
+
+/* The app's trailing slot (its count, then the chevron) leads the row as the chevron. */
+.sand-agents-section__header[data-section-id] > span:last-child {
+	order: -2;
+	margin-inline-end: 8px;
+}
+
+.sand-agents-section__header[data-section-id]:not([data-section-id="__agents__"]) > span:last-child {
+	margin-inline-end: 4px;
+}
+
+/* Its count gives way to the one after the name. */
+.sand-agents-section__header[data-section-id] > span:last-child > :not(:last-child) {
+	display: none !important;
+}
+
+.sand-agents-section__header[data-section-id] > span:last-child > span:last-child {
+	color: var(--cursor-text-tertiary, #8b8b94) !important;
+}
+
+.sand-agents-section__header[data-section-id] [data-icon-name="chevron-right"] {
+	--icon-size: 16px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.sand-agents-section__header[data-section-id] > span:last-child > span:last-child {
+		transition-property: opacity, transform !important;
+		transition-duration: 0.15s !important;
+	}
+}
+
+/* Folder outline between the chevron and the name. */
+.sand-agents-section__header[data-section-id]:not([data-section-id="__agents__"])::before {
+	--bgb-sidebar-folders-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1.5 4.5A1.5 1.5 0 0 1 3 3h3.2l1.6 1.6H13A1.5 1.5 0 0 1 14.5 6v5.5A1.5 1.5 0 0 1 13 13H3a1.5 1.5 0 0 1-1.5-1.5z'/%3E%3C/svg%3E");
+	content: "";
+	order: -1;
+	flex-shrink: 0;
+	width: 16px;
+	height: 16px;
+	margin-inline-end: 8px;
+	color: color-mix(in srgb, var(--cursor-text-secondary, #b9b9c1) 50%, var(--cursor-text-tertiary, #8b8b95));
+	background-color: currentColor;
+	-webkit-mask: var(--bgb-sidebar-folders-icon) center / 16px 16px no-repeat;
+	mask: var(--bgb-sidebar-folders-icon) center / 16px 16px no-repeat;
+}
+
+.sand-agents-section__header[data-section-id] > .ui-text,
+.sand-agents-section__header[data-section-id] > input {
+	font-size: 13px !important;
+	font-weight: 600 !important;
+	line-height: 16px !important;
+}
+
+/* The bot count, right-aligned, whether the folder is open or collapsed (`header-count` patch). */
+.sand-agents-section__header[data-bgb-bot-count]::after {
+	content: attr(data-bgb-bot-count);
+	flex-shrink: 0;
+	margin-inline-start: 8px;
+	color: var(--cursor-text-tertiary, #8b8b95);
+	font-size: 12px;
+	font-weight: 400;
+	line-height: 16px;
+	font-variant-numeric: tabular-nums;
+}
+
+/* Bot rows: 11px corners and a subtle fill, on the app's own hover and current-bot states. */
+.sand-agents-section[data-section-id] .sand-agent-item[data-layout="expanded"] {
+	--sand-agent-item-radius: 11px;
+	--sand-fill-ghost-hover: var(--bgb-sidebar-folders-hover-fill);
+	--sand-fill-ghost-selected: var(--bgb-sidebar-folders-selected-fill);
+}
+
+/* Bots inside a folder are indented: avatars sit under the folder icon, names start past the folder name. */
+.sand-agents-section[data-section-id]:not([data-section-id="__agents__"]) .sand-agent-item[data-layout="expanded"] {
+	padding-inline-start: 20px !important;
+}
+
+/* An empty folder's hint lines up with the folder name. */
+.sand-agents-section[data-section-id]:not([data-section-id="__agents__"]) .sand-agents-section__empty {
+	padding-inline-start: 52px !important;
+}
+
+/* Insertion line while dragging a bot inside a folder. */
 .bgb-sidebar-folders__drop-line {
 	position: fixed;
 	z-index: 2147483000;
 	height: 2px;
 	margin-top: -1px;
 	border-radius: var(--cursor-radius-full, 9999px);
-	background-color: var(--cursor-bg-blue-primary);
+	background: var(--bgb-brand-gradient);
 	pointer-events: none;
 }
 
-/* "New folder" menu on empty sidebar space, styled like the app's context menus. */
+/* The app's line while dragging a folder to a new position. */
+.sand-agents-section__drop-line {
+	height: 2px !important;
+	border-radius: var(--cursor-radius-full, 9999px);
+	background: var(--bgb-brand-gradient) !important;
+}
+
+/* "New folder" menu on empty sidebar space, built from the app's menu tokens to match its context menus. */
 .bgb-sidebar-folders__menu {
 	position: fixed;
 	z-index: 2147483000;
 	display: flex;
 	flex-direction: column;
-	min-width: 160px;
-	padding: 4px;
-	border: 1px solid var(--cursor-stroke-secondary, rgba(128, 128, 128, 0.2));
-	border-radius: var(--cursor-radius-lg, 8px);
+	gap: 2px;
+	min-width: 180px;
+	padding: 6px;
+	border-radius: var(--sand-menu-radius, 12px);
 	background-color: var(--cursor-bg-elevated);
-	box-shadow: var(--cursor-box-shadow-popup);
+	box-shadow: inset 0 0 0 0.5px var(--cursor-stroke-secondary, rgb(128 128 128 / 0.2)), var(--ui-popup-box-shadow, var(--cursor-box-shadow-popup));
 	font-family: var(--cursor-font-family-sans);
+	font-size: var(--sand-menu-font-size, 13px);
+	line-height: var(--sand-menu-line-height, 18px);
 }
 
 .bgb-sidebar-folders__menu-item {
 	display: flex;
 	align-items: center;
-	height: 28px;
+	min-height: var(--sand-menu-row-height, 30px);
 	padding: 0 8px;
 	border: 0;
-	border-radius: var(--cursor-radius-base, 6px);
+	border-radius: var(--sand-menu-row-radius, 6px);
 	background: transparent;
 	color: var(--cursor-text-primary);
 	font: inherit;
-	font-size: var(--cursor-font-size-base, 13px);
 	text-align: start;
 	cursor: default;
 	outline: none;

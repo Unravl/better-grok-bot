@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { barView, currentSummary, formatPercent, resetLabel } from "./runtime.ts";
+import { barView, currentSummary, formatPercent, resetLabel, resetTitle } from "./runtime.ts";
 
 const NOW = 1_700_000_000_000;
 const DAY = 24 * 60 * 60 * 1000;
@@ -32,6 +32,17 @@ describe("resetLabel", () => {
 	});
 });
 
+describe("resetTitle", () => {
+	test("gives the exact reset moment only while it is still ahead", () => {
+		const format = new Intl.DateTimeFormat(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+		expect(resetTitle(NOW + 2.5 * DAY, NOW)).toBe(`Resets ${format.format(NOW + 2.5 * DAY)}`);
+		expect(resetTitle(NOW, NOW)).toBeNull();
+		expect(resetTitle(NOW - DAY, NOW)).toBeNull();
+		expect(resetTitle(undefined, NOW)).toBeNull();
+		expect(resetTitle(Number.NaN, NOW)).toBeNull();
+	});
+});
+
 describe("barView", () => {
 	test("loading without data shows the placeholder; empty, unavailable and failed hide", () => {
 		expect(barView({ status: "loading" }, NOW)).toEqual({ kind: "loading" });
@@ -50,7 +61,17 @@ describe("barView", () => {
 	test("maps the percentage to a clamped meter with a level", () => {
 		const view = barView({ status: "ready", value: { sandUsagePercent: 85, sandUsageResetTimestampMs: NOW + DAY } }, NOW);
 		expect(view).toMatchObject({ kind: "meter", percent: 85, level: "high", resetLabel: "Resets in 1 day" });
-		expect(barView({ status: "ready", value: { sandUsagePercent: 30 } }, NOW)).toMatchObject({ level: "normal", percent: 30 });
+		expect(view).toMatchObject({ resetTitle: expect.stringMatching(/^Resets \S/) });
+		expect(barView({ status: "ready", value: { sandUsagePercent: 30 } }, NOW)).toMatchObject({
+			level: "normal",
+			percent: 30,
+			resetLabel: null,
+			resetTitle: null,
+		});
+		expect(barView({ status: "ready", value: { sandUsagePercent: 50, sandUsageResetTimestampMs: NOW - 1 } }, NOW)).toMatchObject({
+			resetLabel: "Resets soon",
+			resetTitle: null,
+		});
 		expect(barView({ status: "ready", value: { sandUsagePercent: 140 } }, NOW)).toMatchObject({ level: "full", percent: 100 });
 		expect(barView({ status: "failed", previous: { sandUsagePercent: 12 } }, NOW)).toMatchObject({ kind: "meter", percent: 12 });
 	});

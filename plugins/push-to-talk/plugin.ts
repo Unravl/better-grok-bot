@@ -13,6 +13,7 @@ export default definePlugin({
 	apiVersion: 1,
 	permissions: ["keys", "media"],
 	runtime: "runtime.ts",
+	styles: "styles.css",
 	patches: [
 		{
 			// Realtime `session.update`: manual turns (no server VAD) while push to talk is on.

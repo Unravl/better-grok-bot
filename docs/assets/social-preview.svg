@@ -1,21 +1,54 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640" role="img" aria-label="Better Grok Bot">
 <title>Better Grok Bot</title>
-<defs><linearGradient id="sg" x1="24" y1="16" x2="232" y2="240" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#8B5CF6"/><stop offset=".52" stop-color="#6366F1"/><stop offset="1" stop-color="#22D3EE"/></linearGradient><linearGradient id="ssh" x1="0" y1="8" x2="0" y2="248" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".24"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/></linearGradient><linearGradient id="t" x1="316" y1="0" x2="820" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#8B5CF6"/><stop offset=".52" stop-color="#6366F1"/><stop offset="1" stop-color="#22D3EE"/></linearGradient><linearGradient id="c" x1="100" y1="0" x2="1180" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#8B5CF6"/><stop offset=".52" stop-color="#6366F1"/><stop offset="1" stop-color="#22D3EE"/></linearGradient>
-<radialGradient id="ga" cx="240" cy="0" r="760" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#8B5CF6" stop-opacity=".38"/><stop offset="1" stop-color="#8B5CF6" stop-opacity="0"/></radialGradient>
-<radialGradient id="gb" cx="1120" cy="660" r="760" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#22D3EE" stop-opacity=".24"/><stop offset="1" stop-color="#22D3EE" stop-opacity="0"/></radialGradient>
-<radialGradient id="gm" cx="640" cy="180" r="180" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6366F1" stop-opacity=".45"/><stop offset="1" stop-color="#6366F1" stop-opacity="0"/></radialGradient></defs>
+<defs>
+<linearGradient id="t" x1="316" y1="0" x2="572" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6366F1"/><stop offset=".55" stop-color="#38BDF8"/><stop offset="1" stop-color="#22D3EE"/></linearGradient>
+<linearGradient id="c" x1="100" y1="0" x2="1180" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6366F1"/><stop offset=".5" stop-color="#38BDF8"/><stop offset="1" stop-color="#22D3EE"/></linearGradient>
+<radialGradient id="ga" cx="240" cy="0" r="760" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6366F1" stop-opacity=".26"/><stop offset="1" stop-color="#6366F1" stop-opacity="0"/></radialGradient>
+<radialGradient id="gb" cx="1120" cy="660" r="760" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#22D3EE" stop-opacity=".22"/><stop offset="1" stop-color="#22D3EE" stop-opacity="0"/></radialGradient>
+<radialGradient id="gm" cx="640" cy="170" r="200" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#22D3EE" stop-opacity=".3"/><stop offset="1" stop-color="#22D3EE" stop-opacity="0"/></radialGradient>
+<linearGradient id="tile" x1="0" y1="25" x2="0" y2="231" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#333"/><stop offset=".45" stop-color="#242424"/><stop offset="1" stop-color="#0c0c0c"/></linearGradient>
+<linearGradient id="tile-rim" x1="25" y1="25" x2="231" y2="231" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".6"/><stop offset=".3" stop-color="#fff" stop-opacity=".3"/><stop offset=".5" stop-color="#fff" stop-opacity=".08"/><stop offset=".75" stop-color="#fff" stop-opacity=".28"/><stop offset="1" stop-color="#fff" stop-opacity=".45"/></linearGradient>
+<linearGradient id="tile-gloss" x1="25" y1="25" x2="231" y2="231" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".3" stop-color="#fff" stop-opacity=".12"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset=".75" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity=".4"/></linearGradient>
+<radialGradient id="sphere" cx="154" cy="96" r="200" fx="157" fy="123" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fbfbfc"/><stop offset=".1" stop-color="#f4f4f5"/><stop offset=".2" stop-color="#e7e7e9"/><stop offset=".3" stop-color="#dddddf"/><stop offset=".5" stop-color="#c4c4c8"/><stop offset=".7" stop-color="#a0a0a4"/><stop offset=".8" stop-color="#8e8e92"/><stop offset="1" stop-color="#6b6b70"/></radialGradient>
+<linearGradient id="sphere-rim" x1="190" y1="88" x2="220" y2="130" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".95"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+<radialGradient id="spill" cx="151" cy="127" r="74" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#22d3ee" stop-opacity=".22"/><stop offset=".5" stop-color="#22d3ee" stop-opacity=".08"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/></radialGradient>
+<radialGradient id="eye"><stop offset="0" stop-color="#ecfeff"/><stop offset=".35" stop-color="#a5f3fc"/><stop offset=".75" stop-color="#22d3ee"/><stop offset="1" stop-color="#0891b2"/></radialGradient>
+<linearGradient id="lip" x1="0" y1="0" x2="1" y2="1"><stop offset=".45" stop-color="#ecfeff" stop-opacity="0"/><stop offset=".8" stop-color="#ecfeff" stop-opacity=".85"/><stop offset="1" stop-color="#ecfeff"/></linearGradient>
+<filter id="drop" x="-15%" y="-15%" width="130%" height="135%" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="4.5"/></filter>
+<filter id="contact" x="-15%" y="-15%" width="130%" height="130%" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="4"/></filter>
+<filter id="glow-far" x="-60%" y="-60%" width="220%" height="220%" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="9"/></filter>
+<filter id="glow-near" x="-40%" y="-40%" width="180%" height="180%" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="3"/></filter>
+<filter id="gloss-blur" x="-5%" y="-5%" width="110%" height="110%" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="1.6"/></filter>
+<clipPath id="tile-clip"><path d="M25 84V172C25 214.5 41.5 231 84 231H172C214.5 231 231 214.5 231 172V84C231 41.5 214.5 25 172 25H84C41.5 25 25 41.5 25 84Z"/></clipPath>
+</defs>
 <rect width="1280" height="640" fill="#0D1117"/>
 <rect width="1280" height="640" fill="url(#ga)"/>
 <rect width="1280" height="640" fill="url(#gb)"/>
 <rect width="1280" height="640" fill="url(#gm)"/>
-<g transform="translate(552 92) scale(0.6875)">
-<rect x="8" y="8" width="240" height="240" rx="60" fill="url(#sg)"/>
-<rect x="8" y="8" width="240" height="240" rx="60" fill="url(#ssh)"/>
-<rect x="8.75" y="8.75" width="238.5" height="238.5" rx="59.25" fill="none" stroke="#fff" stroke-opacity=".18" stroke-width="1.5"/>
-<path d="M84 74H168A36 36 0 0 1 204 110V150A36 36 0 0 1 168 186H112L78 212Q72 216.5 72 209V184.5A36 36 0 0 1 48 150V110A36 36 0 0 1 84 74Z" fill="#fff"/>
-<g fill="url(#sg)"><rect x="71" y="118" width="14" height="24" rx="7"/><rect x="95" y="104" width="14" height="52" rx="7"/><rect x="119" y="92" width="14" height="76" rx="7"/><rect x="143" y="104" width="14" height="52" rx="7"/><rect x="167" y="118" width="14" height="24" rx="7"/></g>
-<path d="M200 30Q204.5 59.5 234 64Q204.5 68.5 200 98Q195.5 68.5 166 64Q195.5 59.5 200 30Z" fill="none" stroke="url(#sg)" stroke-width="14" stroke-linejoin="round"/>
-<path d="M200 30Q204.5 59.5 234 64Q204.5 68.5 200 98Q195.5 68.5 166 64Q195.5 59.5 200 30Z" fill="#fff"/>
+<g transform="translate(537.5 77.5) scale(.8)">
+<!-- Tile: macOS icon grid, continuous corners, soft drop shadow -->
+<path d="M25 84V172C25 214.5 41.5 231 84 231H172C214.5 231 231 214.5 231 172V84C231 41.5 214.5 25 172 25H84C41.5 25 25 41.5 25 84Z" transform="translate(0 2)" fill="#000" opacity=".28" filter="url(#drop)"/>
+<path d="M25 84V172C25 214.5 41.5 231 84 231H172C214.5 231 231 214.5 231 172V84C231 41.5 214.5 25 172 25H84C41.5 25 25 41.5 25 84Z" fill="url(#tile)"/>
+<g clip-path="url(#tile-clip)">
+<!-- Sphere: contact shadow, shading, cyan spill from the eyes, top rim light -->
+<circle cx="114.5" cy="180" r="117.2" fill="#000" opacity=".55" filter="url(#contact)"/>
+<circle cx="113" cy="177.8" r="117.2" fill="url(#sphere)"/>
+<circle cx="113" cy="177.8" r="117.2" fill="url(#spill)"/>
+<circle cx="113" cy="177.8" r="115.2" fill="none" stroke="url(#sphere-rim)" stroke-width="3.4"/>
+<!-- Awakened eyes: glow, lit lip, core, specular -->
+<g fill="#22d3ee">
+<g filter="url(#glow-far)" opacity=".9"><rect x="-14.8" y="-32.3" width="29.6" height="64.6" rx="14.8" transform="translate(124.7 139.9) rotate(-35.2)"/><rect x="-9.4" y="-32.4" width="18.8" height="64.8" rx="9.4" ry="14.5" transform="translate(179.6 114) rotate(-35.7)"/></g>
+<g filter="url(#glow-near)" stroke="#22d3ee" stroke-width="3"><rect x="-14.8" y="-32.3" width="29.6" height="64.6" rx="14.8" transform="translate(124.7 139.9) rotate(-35.2)"/><rect x="-9.4" y="-32.4" width="18.8" height="64.8" rx="9.4" ry="14.5" transform="translate(179.6 114) rotate(-35.7)"/></g>
+</g>
+<g fill="none" stroke="url(#lip)" stroke-width="2.8"><rect x="-16.2" y="-33.7" width="32.4" height="67.4" rx="16.2" transform="translate(124.7 139.9) rotate(-35.2)"/><rect x="-10.8" y="-33.8" width="21.6" height="67.6" rx="10.8" ry="15.9" transform="translate(179.6 114) rotate(-35.7)"/></g>
+<g fill="url(#eye)"><rect x="-14.8" y="-32.3" width="29.6" height="64.6" rx="14.8" transform="translate(124.7 139.9) rotate(-35.2)"/><rect x="-9.4" y="-32.4" width="18.8" height="64.8" rx="9.4" ry="14.5" transform="translate(179.6 114) rotate(-35.7)"/></g>
+<g fill="#fff" opacity=".85"><rect x="-4.5" y="-25.5" width="6" height="11" rx="3" transform="translate(124.7 139.9) rotate(-35.2)"/><rect x="-3" y="-25.5" width="4" height="10" rx="2" transform="translate(179.6 114) rotate(-35.7)"/></g>
+</g>
+<!-- Glass edge: soft corner gloss and a crisp inner rim -->
+<g clip-path="url(#tile-clip)" fill="none">
+<path d="M25 84V172C25 214.5 41.5 231 84 231H172C214.5 231 231 214.5 231 172V84C231 41.5 214.5 25 172 25H84C41.5 25 25 41.5 25 84Z" stroke="url(#tile-gloss)" stroke-width="7" filter="url(#gloss-blur)"/>
+<path d="M25 84V172C25 214.5 41.5 231 84 231H172C214.5 231 231 214.5 231 172V84C231 41.5 214.5 25 172 25H84C41.5 25 25 41.5 25 84Z" stroke="url(#tile-rim)" stroke-width="2.5"/>
+</g>
 </g>
 <text x="640" y="358" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Helvetica, Arial, sans-serif" font-size="92" font-weight="800" letter-spacing="-2.5" fill="#F0F6FC"><tspan fill="url(#t)">Better</tspan> Grok Bot</text>
 <text x="640" y="418" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Helvetica, Arial, sans-serif" font-size="32" font-weight="500" fill="#9AA4B2">The modding framework for the Grok Bot desktop app</text>

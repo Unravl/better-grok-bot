@@ -10,7 +10,8 @@ const APP_CHUNK = /^assets\/index\.eager-app-[\w-]+\.js$/;
  * answers null (no sections saved there, or a computer that does not store them) the sections store stays
  * unsupported: no "Move to new section" menu item, no drop targets, and every edit is ignored. `sections-storage`
  * routes the store's reads and writes through the runtime, which falls back to a copy kept by Better Grok Bot so
- * folders always work and persist. The other patches add folder ordering, drop-at-pointer and folder wording.
+ * folders always work and persist. The other patches add folder ordering, drop-at-pointer, folder wording and the
+ * header bot count that `styles.css` shows.
  */
 export default definePlugin({
 	id: "sidebar-folders",
@@ -84,6 +85,15 @@ export default definePlugin({
 			find: /if\((\i)\.kind==="agent"&&(\i)\.kind==="section-body"\)\{(\i)\(\1\.id,\2\.id\);return\}/,
 			replace:
 				'if($1.kind==="agent"&&$2.kind==="section-body"){globalThis.BetterGrokBot?.call("sidebar-folders","dropAgent",$1.id,$2.id)??$3($1.id,$2.id);return}',
+		},
+		{
+			// A section header's bot count as `data-bgb-bot-count` on the header button (the app renders its own
+			// count only while the section is collapsed); styles.css shows it after every folder name.
+			id: "header-count",
+			file: ENTRY_CHUNK,
+			find: /count:(\i)\.agents\.length,"data-section-id":\1\.id,/,
+			replace: 'count:$1.agents.length,"data-bgb-bot-count":$1.agents.length,"data-section-id":$1.id,',
+			expect: 1,
 		},
 	],
 });

@@ -1,60 +1,223 @@
+:root {
+	--bgb-brand-violet: #8b5cf6;
+	--bgb-brand-indigo: #6366f1;
+	--bgb-brand-cyan: #22d3ee;
+	--bgb-brand-gradient: linear-gradient(90deg, var(--bgb-brand-violet), var(--bgb-brand-indigo) 52%, var(--bgb-brand-cyan));
+	--bgb-brand-gradient-diagonal: linear-gradient(135deg, var(--bgb-brand-violet), var(--bgb-brand-indigo) 52%, var(--bgb-brand-cyan));
+	--bgb-brand-soft: rgb(139 92 246 / 0.16);
+}
+
+/* Theme-following tokens; the hex values are the hero's dark fallbacks. */
+.bgb-chat-search,
+.bgb-chat-search-button {
+	--bgb-chat-search-surface: var(--sand-bg-elevated, var(--cursor-bg-elevated, #1c1c21));
+	--bgb-chat-search-text: var(--sand-text-primary, var(--cursor-text-primary, #f4f4f5));
+	--bgb-chat-search-secondary: var(--sand-text-secondary, var(--cursor-text-secondary, #c9c9d1));
+	--bgb-chat-search-muted: var(--sand-text-tertiary, var(--cursor-text-tertiary, #8b8b95));
+	--bgb-chat-search-divider: var(--sand-border-weak, var(--cursor-stroke-secondary, rgb(255 255 255 / 0.12)));
+	--bgb-chat-search-hover: var(--sand-fill-ghost-hover, var(--cursor-bg-tertiary, rgb(255 255 255 / 0.07)));
+}
+
+/* Header button: the app's ghost pill, with the hero's feature-chip accent while search is open. */
 .bgb-chat-search-button {
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
-	padding: 6px 9px;
-	border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
-	border-radius: 6px;
+	height: 28px;
+	padding: 0 11px 0 9px;
+	border: 1px solid transparent;
+	border-radius: 999px;
 	background: transparent;
-	color: inherit;
+	color: var(--bgb-chat-search-secondary);
 	font: inherit;
-	font-size: 12px;
+	font-size: 13px;
+	font-weight: 500;
+	white-space: nowrap;
 	cursor: pointer;
+	-webkit-app-region: no-drag;
+}
+
+.bgb-chat-search-button svg {
+	flex: none;
+	width: 15px;
+	height: 15px;
 }
 
 .bgb-chat-search-button:hover {
-	background: color-mix(in srgb, currentColor 8%, transparent);
+	background-color: var(--bgb-chat-search-hover);
+	color: var(--bgb-chat-search-text);
+}
+
+:root:has(.bgb-chat-search) .bgb-chat-search-button {
+	background:
+		linear-gradient(var(--bgb-brand-soft), var(--bgb-brand-soft)) padding-box,
+		linear-gradient(var(--bgb-chat-search-surface), var(--bgb-chat-search-surface)) padding-box,
+		var(--bgb-brand-gradient) border-box;
+	color: var(--bgb-chat-search-text);
+}
+
+:root:has(.bgb-chat-search) .bgb-chat-search-button svg {
+	color: var(--bgb-brand-violet);
 }
 
 .bgb-chat-search-button:focus-visible,
-.bgb-chat-search-history button:focus-visible {
-	outline: 2px solid currentColor;
+.bgb-chat-search-history button:focus-visible,
+.bgb-chat-search .sand-chat-find-bar > button:focus-visible {
+	outline: 2px solid var(--bgb-brand-violet) !important;
 	outline-offset: 2px;
 }
 
+/* Floating search, right-aligned under the header. */
 .bgb-chat-search {
 	position: absolute;
 	top: calc(var(--sand-toolbar-height, 38px) + 8px);
-	right: 16px;
+	right: 18px;
 	z-index: 4;
-	width: min(380px, calc(100% - 32px));
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	gap: 8px;
+	width: min(310px, calc(100% - 36px));
 }
 
 .bgb-chat-search > .sand-chat-find {
-	/* Native generated rules have repeated ID specificity. */
+	/* Native generated rules carry repeated ID specificity, so overrides need !important. */
 	position: static !important;
 }
 
+/* The 34px pill with a 1.5px brand-gradient border (double-background border technique). */
+.bgb-chat-search .sand-chat-find-bar {
+	box-sizing: border-box !important;
+	gap: 0 !important;
+	height: 34px !important;
+	padding: 0 6px 0 14px !important;
+	border: 1.5px solid transparent !important;
+	border-radius: 17px !important;
+	background:
+		linear-gradient(var(--bgb-chat-search-surface), var(--bgb-chat-search-surface)) padding-box,
+		var(--bgb-brand-gradient) border-box !important;
+	box-shadow: var(--sand-shadow-popover, 0 12px 32px rgb(0 0 0 / 0.35)) !important;
+	color: var(--bgb-chat-search-text) !important;
+}
+
+/* Magnifier (native span, already muted). */
+.bgb-chat-search .sand-chat-find-bar > span:first-child {
+	flex: none;
+	margin-right: 8px;
+	padding: 0 !important;
+}
+
+.bgb-chat-search .sand-chat-find-bar > input {
+	flex: 1 1 auto;
+	min-width: 0;
+	width: auto !important;
+	height: 100%;
+	padding: 0 !important;
+	color: var(--bgb-chat-search-text) !important;
+	font-size: 13.5px !important;
+	line-height: normal !important;
+}
+
+/* Match counter: colour stays native (muted, or danger for no matches). */
+.bgb-chat-search .sand-chat-find-bar > [role="status"] {
+	flex: none;
+	min-width: 0 !important;
+	padding: 0 0 0 8px !important;
+	font-size: 12px !important;
+	font-variant-numeric: tabular-nums;
+	line-height: 1 !important;
+}
+
+/* Divider between the counter and the step buttons. */
+.bgb-chat-search .sand-chat-find-bar > span[aria-hidden]:not(:first-child) {
+	flex: none;
+	width: 1px !important;
+	margin: 7px 4px 7px 10px !important;
+	background-color: var(--bgb-chat-search-divider) !important;
+}
+
+.bgb-chat-search .sand-chat-find-bar > button {
+	flex: none;
+	width: 24px !important;
+	height: 24px !important;
+	min-width: 0 !important;
+	margin: 0 1px !important;
+	padding: 0 !important;
+	border-radius: 50% !important;
+	background-color: transparent !important;
+	color: var(--bgb-chat-search-text) !important;
+}
+
+.bgb-chat-search .sand-chat-find-bar > button:last-child {
+	margin-left: 3px !important;
+	color: var(--bgb-chat-search-muted) !important;
+}
+
+.bgb-chat-search .sand-chat-find-bar > button:not(:disabled):hover {
+	background-color: var(--bgb-chat-search-hover) !important;
+}
+
+.bgb-chat-search .sand-chat-find-bar > button:last-child:hover {
+	color: var(--bgb-chat-search-text) !important;
+}
+
+.bgb-chat-search .sand-chat-find-bar > button:disabled {
+	opacity: 0.4;
+}
+
+/* History notice: a small raised card under the pill. */
 .bgb-chat-search-history {
 	display: flex;
 	align-items: center;
 	flex-wrap: wrap;
-	gap: 8px;
-	padding: 4px 12px 8px;
-	font-size: 11px;
-	opacity: 0.8;
-	border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
-	border-radius: 6px;
-	background: Canvas;
-	color: CanvasText;
+	gap: 4px 8px;
+	padding: 8px 12px;
+	border: 1px solid var(--bgb-chat-search-divider);
+	border-radius: 12px;
+	background: var(--bgb-chat-search-surface);
+	box-shadow: var(--sand-shadow-popover, 0 12px 32px rgb(0 0 0 / 0.35));
+	color: var(--bgb-chat-search-muted);
+	font-size: 12px;
+	line-height: 1.4;
+}
+
+.bgb-chat-search-history[role="alert"] {
+	color: var(--bgb-chat-search-secondary);
 }
 
 .bgb-chat-search-history button {
 	border: 0;
-	padding: 2px 4px;
+	border-radius: 6px;
+	padding: 2px 6px;
+	margin-left: -6px;
 	background: transparent;
-	color: inherit;
+	color: var(--bgb-brand-violet);
 	font: inherit;
-	text-decoration: underline;
+	font-weight: 600;
 	cursor: pointer;
+}
+
+.bgb-chat-search-history button:hover {
+	background-color: var(--bgb-brand-soft);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.bgb-chat-search-button,
+	.bgb-chat-search .sand-chat-find-bar > button,
+	.bgb-chat-search-history button {
+		transition: background-color 120ms ease, color 120ms ease;
+	}
+}
+
+/*
+ * Native match highlights use the CSS Custom Highlight API. ::highlight() accepts colours only
+ * (no background-image), so the current match takes the gradient's violet-indigo blend.
+ */
+::highlight(sand-find-match) {
+	background-color: color-mix(in srgb, var(--bgb-brand-violet) 30%, transparent) !important;
+}
+
+::highlight(sand-find-current) {
+	background-color: color-mix(in srgb, var(--bgb-brand-violet), var(--bgb-brand-indigo)) !important;
+	color: #fff !important;
 }

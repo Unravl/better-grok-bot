@@ -1,0 +1,297 @@
+:root {
+	--bgb-brand-violet: #8b5cf6;
+	--bgb-brand-indigo: #6366f1;
+	--bgb-brand-cyan: #22d3ee;
+	--bgb-brand-gradient: linear-gradient(90deg, var(--bgb-brand-violet), var(--bgb-brand-indigo) 52%, var(--bgb-brand-cyan));
+	--bgb-brand-gradient-diagonal: linear-gradient(135deg, var(--bgb-brand-violet), var(--bgb-brand-indigo) 52%, var(--bgb-brand-cyan));
+	--bgb-brand-soft: rgb(139 92 246 / 0.16);
+}
+
+/*
+ * Push to talk, drawn after the README illustration (docs/assets/hero.svg): keycaps for the key, music level rows
+ * with a full-width gradient slider, and the call's talk button as a brand gradient circle. Every rule targets
+ * push-to-talk's own elements; the app's Row, Toggle and Button around them stay native.
+ */
+
+/* Theme-following tokens; the hex values are the illustration's dark fallbacks. */
+.bgb-push-to-talk__key-chip,
+.bgb-push-to-talk__hint,
+.bgb-push-to-talk__level {
+	--bgb-push-to-talk-text: var(--cursor-text-primary, #e4e4e7);
+	--bgb-push-to-talk-secondary: var(--cursor-text-secondary, #c9c9d1);
+	--bgb-push-to-talk-muted: var(--cursor-text-tertiary, #8b8b95);
+	--bgb-push-to-talk-raised: var(--cursor-bg-tertiary, #2a2a30);
+	--bgb-push-to-talk-raised-hover: var(--cursor-bg-secondary, #34343b);
+	--bgb-push-to-talk-border: var(--cursor-stroke-secondary, rgb(255 255 255 / 0.14));
+	--bgb-push-to-talk-track: var(--sand-fill-control-track, rgb(255 255 255 / 0.12));
+}
+
+/* Keycaps (the settings key chip, the key in the call hint): raised fill, light border, darker bottom edge. */
+.bgb-push-to-talk__key-chip,
+.bgb-push-to-talk__key {
+	box-sizing: border-box;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	margin: 0;
+	border: 1px solid var(--bgb-push-to-talk-border);
+	background: var(--bgb-push-to-talk-raised);
+	box-shadow: inset 0 -1px 0 light-dark(rgb(0 0 0 / 0.18), rgb(0 0 0 / 0.5));
+	color: var(--bgb-push-to-talk-text);
+	font-family: var(--cursor-font-family-sans, inherit);
+	font-size: var(--cursor-font-size-xs, 11px);
+	font-weight: var(--cursor-font-weight-semibold, 600);
+	line-height: 1;
+	letter-spacing: normal;
+	white-space: nowrap;
+	-webkit-font-smoothing: antialiased;
+}
+
+/* Settings → Push-to-talk key: a 24px keycap naming the key. Click to record a new one. */
+.bgb-push-to-talk__key-chip {
+	position: relative;
+	height: 24px;
+	min-width: 24px;
+	padding: 0 10px;
+	border-radius: 6px;
+	cursor: pointer;
+}
+
+.bgb-push-to-talk__key-chip:hover {
+	background: var(--bgb-push-to-talk-raised-hover);
+}
+
+.bgb-push-to-talk__key-chip:focus-visible {
+	outline: 2px solid var(--bgb-brand-violet);
+	outline-offset: 2px;
+}
+
+/* Recording ("Press a key…"): a violet-tinted cap inside a brand-gradient ring with a soft halo. */
+.bgb-push-to-talk__key-chip[data-recording] {
+	border-color: transparent;
+	background: var(--bgb-brand-soft);
+	box-shadow: 0 0 0 3px var(--bgb-brand-soft);
+}
+
+.bgb-push-to-talk__key-chip[data-recording]::before {
+	content: "";
+	position: absolute;
+	inset: -1px;
+	padding: 1px;
+	border-radius: inherit;
+	background: var(--bgb-brand-gradient);
+	mask:
+		linear-gradient(#000 0 0) content-box,
+		linear-gradient(#000 0 0);
+	mask-composite: exclude;
+	pointer-events: none;
+}
+
+/*
+ * Settings → music levels. Each is a row of its own, laid out like the app's card rows (same padding and type): the
+ * label with the level on its right, the slider across the row, then the description.
+ */
+.bgb-push-to-talk__level {
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	padding: var(--cursor-spacing-2-5, 10px) var(--cursor-spacing-3-5, 14px);
+	font-family: var(--cursor-font-family-sans, inherit);
+	font-size: var(--cursor-font-size-base, 13px);
+	font-weight: var(--cursor-font-weight-normal, 400);
+	line-height: var(--cursor-line-height-base, 18px);
+	letter-spacing: var(--cursor-letter-spacing-base, normal);
+	overflow-wrap: break-word;
+	-webkit-font-smoothing: antialiased;
+}
+
+.bgb-push-to-talk__level-head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var(--cursor-spacing-3, 12px);
+	min-width: 0;
+}
+
+.bgb-push-to-talk__level-label {
+	min-width: 0;
+	color: var(--bgb-push-to-talk-text);
+}
+
+.bgb-push-to-talk__level-value {
+	flex: none;
+	color: var(--bgb-push-to-talk-muted);
+	font-size: var(--cursor-font-size-sm, 12px);
+	font-variant-numeric: tabular-nums;
+}
+
+.bgb-push-to-talk__level-description {
+	margin-top: var(--cursor-spacing-1, 4px);
+	color: var(--bgb-push-to-talk-secondary);
+}
+
+.bgb-push-to-talk__level[data-disabled] .bgb-push-to-talk__level-value {
+	opacity: 0.6;
+}
+
+/*
+ * The slider: a 4px track on a subtle fill, painted with the brand gradient up to the thumb's centre, and a 16px white
+ * thumb. The runtime sets --bgb-push-to-talk-level to the value as a fraction (0–1); the thumb travels the track's
+ * width less its own, so the fill ends at 8px + (track − 16px) × level.
+ */
+.bgb-push-to-talk__range {
+	--bgb-push-to-talk-level: 0;
+	-webkit-appearance: none;
+	appearance: none;
+	display: block;
+	box-sizing: border-box;
+	width: 100%;
+	height: 16px;
+	margin: 6px 0 2px;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	cursor: pointer;
+}
+
+.bgb-push-to-talk__range::-webkit-slider-runnable-track {
+	box-sizing: border-box;
+	height: 4px;
+	border: 0;
+	border-radius: 9999px;
+	background:
+		var(--bgb-brand-gradient) 0 0 / calc(8px + (100% - 16px) * var(--bgb-push-to-talk-level)) 100% no-repeat,
+		var(--bgb-push-to-talk-track);
+}
+
+.bgb-push-to-talk__range::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	appearance: none;
+	box-sizing: border-box;
+	width: 16px;
+	height: 16px;
+	margin-top: -6px;
+	border: 0;
+	border-radius: 50%;
+	background: #fff;
+	box-shadow:
+		0 1px 3px rgb(0 0 0 / 0.35),
+		0 0 0 0.5px rgb(0 0 0 / 0.12);
+}
+
+.bgb-push-to-talk__range:not(:disabled):hover::-webkit-slider-thumb,
+.bgb-push-to-talk__range:not(:disabled):active::-webkit-slider-thumb {
+	box-shadow:
+		0 1px 3px rgb(0 0 0 / 0.35),
+		0 0 0 4px var(--bgb-brand-soft);
+}
+
+.bgb-push-to-talk__range:focus-visible {
+	outline: none;
+}
+
+.bgb-push-to-talk__range:not(:disabled):focus-visible::-webkit-slider-thumb {
+	box-shadow:
+		0 1px 3px rgb(0 0 0 / 0.35),
+		0 0 0 3px color-mix(in srgb, var(--bgb-brand-violet) 60%, transparent);
+}
+
+.bgb-push-to-talk__range:disabled {
+	cursor: default;
+	opacity: 0.45;
+	filter: grayscale(1);
+}
+
+/*
+ * Voice call controls: the hold-to-talk button, a brand gradient circle with a white waveform. Size and shape stay the
+ * host's: the app's 44px call buttons, or the voice dock's 34px ones.
+ */
+.bgb-push-to-talk__talk {
+	background-image: var(--bgb-brand-gradient-diagonal);
+}
+
+.bgb-push-to-talk__glyph {
+	flex: none;
+	width: 18px;
+	height: 18px;
+	color: #fff;
+}
+
+.bgb-push-to-talk__talk[data-push-to-talk="idle"]:hover:not(:disabled) {
+	filter: brightness(1.1);
+}
+
+/* Talking: brighter, with a violet glow (and a slight lift where motion is welcome). */
+.bgb-push-to-talk__talk[data-push-to-talk="talking"] {
+	filter: brightness(1.18) saturate(1.1);
+	box-shadow:
+		0 0 0 3px var(--bgb-brand-soft),
+		0 0 16px color-mix(in srgb, var(--bgb-brand-violet) 60%, transparent);
+}
+
+/*
+ * "Hold <key> to talk", rendered right after the talk button. Hidden by default: the app's floating call popover is a
+ * single row with no room for it. A host with room (the voice dock) shows it and places it.
+ */
+.bgb-push-to-talk__hint {
+	display: none;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 2px 6px;
+	min-width: 0;
+	color: var(--bgb-push-to-talk-muted);
+	font-family: var(--cursor-font-family-sans, inherit);
+	font-size: var(--cursor-font-size-sm, 12px);
+	line-height: 20px;
+	white-space: nowrap;
+}
+
+.bgb-push-to-talk__key {
+	height: 20px;
+	padding: 0 7px;
+	border-radius: 5px;
+}
+
+/* While talking, the key in the hint reads as held down. */
+.bgb-push-to-talk__hint[data-push-to-talk="talking"] .bgb-push-to-talk__key {
+	border-color: color-mix(in srgb, var(--bgb-brand-violet) 55%, transparent);
+	background: var(--bgb-brand-soft);
+	box-shadow: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.bgb-push-to-talk__key-chip {
+		transition: background-color 120ms ease-out;
+	}
+
+	.bgb-push-to-talk__key-chip[data-recording] {
+		animation: bgb-push-to-talk-listening 1.2s ease-in-out infinite alternate;
+	}
+
+	.bgb-push-to-talk__range::-webkit-slider-thumb {
+		transition: box-shadow 120ms ease-out;
+	}
+
+	.bgb-push-to-talk__talk[data-push-to-talk="talking"] {
+		transform: scale(1.06);
+	}
+}
+
+@keyframes bgb-push-to-talk-listening {
+	from {
+		box-shadow: 0 0 0 2px var(--bgb-brand-soft);
+	}
+
+	to {
+		box-shadow: 0 0 0 5px rgb(139 92 246 / 0.06);
+	}
+}
+
+/* Last, so it wins over hover, talking and the lift above. */
+.bgb-push-to-talk__talk:disabled {
+	opacity: 0.45;
+	filter: grayscale(0.7);
+	box-shadow: none;
+	transform: none;
+}

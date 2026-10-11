@@ -44,7 +44,8 @@ export default definePlugin({
 			replace: '$1globalThis.BetterGrokBot?.call("voice-dock","useDocked")?!1:$2,',
 		},
 		{
-			// Popover controls: small (24px) instead of large (44px) buttons when docked (`bgbDocked` prop, set only by the dock).
+			// Popover controls: medium (28px, with 16px icons) instead of large (44px, 18px icons) buttons when docked
+			// (`bgbDocked` prop, set only by the dock); styles.css draws them as the hero's 34px circles.
 			id: "docked-control-size",
 			file: ENTRY_CHUNK,
 			find: /\{call:\i,agent:\i,onToggleMute:\i,onHangUp:\i,onDismissFailure:\i\}=(\i)[^]*?"data-voice-call-controls":!0,children:\[[^]*?style:\i\.hangUp\}\)\}\)\]/,
@@ -54,7 +55,7 @@ export default definePlugin({
 				const tail = m.match.slice(at);
 				const sizes = tail.split('size:"lg"').length - 1;
 				if (sizes !== 4) throw new Error(`expected 4 large voice controls, found ${sizes}`);
-				return m.match.slice(0, at) + tail.replaceAll('size:"lg"', `size:${props}.bgbDocked?"sm":"lg"`);
+				return m.match.slice(0, at) + tail.replaceAll('size:"lg"', `size:${props}.bgbDocked?"md":"lg"`);
 			},
 		},
 	],

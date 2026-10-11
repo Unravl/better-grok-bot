@@ -4,6 +4,17 @@ All notable changes to Better Grok Bot are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- The bundled plugins match the README artwork: one violet-to-cyan accent that themes can override (`--bgb-brand-violet`, `--bgb-brand-indigo`, `--bgb-brand-cyan`, `--bgb-brand-gradient`) on top of the app's own colours, so light mode keeps working.
+- Weekly Usage: a 6px gradient bar with "42% · Resets in 3 days" shown inline; hovering shows the exact reset time.
+- Voice Dock: the docked call becomes a card with the bot's name, its status and call timer ("Connected · 3:12:45"), 34px round buttons, a red hang-up button on the right and Push to Talk's key hint underneath.
+- Push to Talk: the key is a keycap chip ("Press a key…" while recording), the music levels are gradient sliders with their percentage beside the label, and the call's hold-to-talk button is a gradient circle with a "Hold Right Option to talk" hint in the voice dock.
+- Sidebar Folders: every folder shows a chevron, a folder icon and its bot count (open or collapsed), rows have rounder corners, and the drag line uses the accent.
+- Chat Search: the find bar is a gradient-bordered pill with a "1 of 3" counter, and matches are highlighted in the accent colours. This applies to every find bar in the app.
+- The "Better Grok Bot" label at the top of the sidebar is set as a title.
+- The README banners, logo and social card show the Grok Bot icon redrawn with glowing cyan eyes.
+
 ## [0.2.0] - 2026-10-11
 
 ### Added
