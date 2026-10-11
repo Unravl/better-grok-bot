@@ -4,6 +4,8 @@ All notable changes to Better Grok Bot are documented here.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-11
+
 ### Added
 
 - Sidebar Folders turns the app's sidebar sections into folders: create them (also by right-clicking empty sidebar space), rename and delete them, drag bots in and out, and drop a bot at the pointer to reorder a folder. When the connected computer stores no sections, Better Grok Bot keeps the folders itself, so they always work and survive restarts.
