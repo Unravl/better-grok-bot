@@ -13,7 +13,11 @@ export interface CoreContext {
 	readonly patchWorkerUrl: URL;
 }
 
-export const PATCH_WORKER_URL = new URL("./patch-worker.ts", import.meta.url);
+/**
+ * `.js`, not `.ts`: a compiled binary stores embedded entrypoints under `.js` names, and Bun maps
+ * `.js` to the `.ts` source when running from a checkout (Step 1.5 spike).
+ */
+export const PATCH_WORKER_URL = new URL("./patch-worker.js", import.meta.url);
 
 export interface CreateContextOptions {
 	/** Defaults to `BGB_DATA_DIR`, then {@link defaultDataDir}. */
