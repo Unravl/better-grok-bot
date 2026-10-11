@@ -52,6 +52,11 @@ const URL = rendererUrl(dataPaths("/home/u/.local/share/BetterGrokBot"));
 const APP: AppInstall = { kind: "linux-package", root: "/opt/Grok Bot", executable: "/opt/Grok Bot/grok-bot", asarPath: "", version: "0.68.1" };
 const userFile = () => path.join(tmp, "data", "applications", "grok-bot.desktop");
 const systemFile = () => path.join(tmp, "sys", "applications", "grok-bot.desktop");
+/**
+ * The Linux adapter only ever runs on Linux. These tests need POSIX paths (colon-separated
+ * `XDG_DATA_DIRS`/`PATH`, backslash-free desktop `Exec` values), symlinks and shell-script executables.
+ */
+const posixOnly = test.skipIf(process.platform === "win32");
 
 describe("hook", () => {
 	test("created: no entry anywhere → fresh hooked entry, removed on hookRemove", async () => {
@@ -69,7 +74,7 @@ describe("hook", () => {
 		expect(await linux.hookStatus(URL, APP)).toEqual({ state: "absent" });
 	});
 
-	test("system-copy: the system entry is copied hooked into the user dir and deleted on removal", async () => {
+	posixOnly("system-copy: the system entry is copied hooked into the user dir and deleted on removal", async () => {
 		const system = "[Desktop Entry]\nName=Grok Bot\nExec=grok-bot %U\nIcon=grok-bot\n";
 		await mkdir(path.dirname(systemFile()), { recursive: true });
 		await writeFile(systemFile(), system);
@@ -146,7 +151,7 @@ describe("locateApp", () => {
 		return file;
 	}
 
-	test("follows a repointed AppImage symlink while keeping the symlink as executable", async () => {
+	posixOnly("follows a repointed AppImage symlink while keeping the symlink as executable", async () => {
 		const a = await fakeAppImage("Grok_Bot_0.68.1.AppImage", "0.68.1");
 		const b = await fakeAppImage("Grok_Bot_0.69.0.AppImage", "0.69.0");
 		const link = path.join(tmp, "data", "grok-bot", "appimage");
@@ -167,7 +172,7 @@ describe("locateApp", () => {
 		expect(await readFile(`${b}.runs`, "utf8")).toBe("resources/app.asar\n");
 	});
 
-	test("deb: /opt install with a bare desktop Exec resolved through PATH", async () => {
+	posixOnly("deb: /opt install with a bare desktop Exec resolved through PATH", async () => {
 		const root = path.join(tmp, "opt", "Grok Bot");
 		await makeFixtureAsar(path.join(root, "resources"), {
 			version: "0.68.1",
@@ -190,7 +195,7 @@ describe("locateApp", () => {
 		});
 	});
 
-	test("a BGB-hooked desktop entry resolves to the real program", async () => {
+	posixOnly("a BGB-hooked desktop entry resolves to the real program", async () => {
 		const root = path.join(tmp, "custom", "grok");
 		await makeFixtureAsar(path.join(root, "resources"), {
 			version: "0.70.0",
@@ -247,7 +252,7 @@ describe("/proc parsing", () => {
 	});
 });
 
-test("autostart file", async () => {
+posixOnly("autostart file", async () => {
 	const linux = adapter();
 	const paths = dataPaths(path.join(tmp, "bgb data"));
 	await linux.autostartInstall(path.join(paths.bin, "bgb"), paths);

@@ -4,7 +4,7 @@ import * as path from "node:path";
 import type { CoreContext } from "../context.ts";
 import { errorMessage } from "../errors.ts";
 import { mutateState, readState } from "../state.ts";
-import { readAppPackage } from "./package.ts";
+import { asarEntry, readAppPackage } from "./package.ts";
 
 const MAIN_PROCESS_FILE = "dist/electron-main/main-core.cjs";
 const RENDERER_DIR = "dist/renderer";
@@ -55,7 +55,7 @@ async function versionLabel(asarPath: string): Promise<string> {
 export async function checkSupport(_ctx: CoreContext, asarPath: string): Promise<void> {
 	let source: string;
 	try {
-		source = await withArchive(asarPath, () => asar.extractFile(asarPath, MAIN_PROCESS_FILE).toString("utf8"));
+		source = await withArchive(asarPath, () => asar.extractFile(asarPath, asarEntry(MAIN_PROCESS_FILE)).toString("utf8"));
 	} catch (error) {
 		throw new Error(
 			`${await versionLabel(asarPath)} is unsupported: cannot read ${MAIN_PROCESS_FILE} from app.asar (${errorMessage(error)}).`,
@@ -107,7 +107,7 @@ export async function extractRenderer(
 						continue;
 					}
 					// Links are followed; unpacked files are read from app.asar.unpacked by @electron/asar.
-					const contents = asar.extractFile(asarPath, `${RENDERER_DIR}/${childRelative}`);
+					const contents = asar.extractFile(asarPath, asarEntry(`${RENDERER_DIR}/${childRelative}`));
 					const target = path.join(dest, ...childRelative.split("/"));
 					await mkdir(path.dirname(target), { recursive: true });
 					await writeFile(target, contents);

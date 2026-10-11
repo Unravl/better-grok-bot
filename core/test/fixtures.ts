@@ -1,6 +1,6 @@
 import * as asar from "@electron/asar";
 import { randomBytes } from "node:crypto";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import * as path from "node:path";
 
 export interface FixtureAsarOptions {
@@ -42,9 +42,30 @@ export async function makeFixtureAsar(dir: string, opts: FixtureAsarOptions): Pr
 		}
 		await rm(out, { force: true });
 		await asar.createPackage(src, out);
-		asar.uncache(out);
+		await waitForArchive(out, Object.values(files).reduce((total, text) => total + Buffer.byteLength(text), 0));
 	} finally {
 		await rm(src, { recursive: true, force: true });
 	}
 	return out;
+}
+
+/**
+ * `asar.createPackage` resolves after `end()`-ing its write stream, before the bytes reach the disk
+ * (on Windows, reading right away returns a truncated archive). Waits until the file holds the 8-byte
+ * size prefix, the header and every packed byte.
+ */
+async function waitForArchive(asarPath: string, contentBytes: number): Promise<void> {
+	const deadline = Date.now() + 10_000;
+	for (;;) {
+		asar.uncache(asarPath);
+		try {
+			const { headerSize } = asar.getRawHeader(asarPath);
+			if ((await stat(asarPath)).size === 8 + headerSize + contentBytes) break;
+		} catch {
+			// The header is not fully written yet.
+		}
+		if (Date.now() >= deadline) throw new Error(`${asarPath} was not completely written within 10 s`);
+		await Bun.sleep(5);
+	}
+	asar.uncache(asarPath);
 }
