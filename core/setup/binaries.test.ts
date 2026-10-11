@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test } from "bun:test";
+import { afterEach, beforeEach, expect, setDefaultTimeout, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { copyFile, mkdir, mkdtemp, readdir, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -12,6 +12,9 @@ import { recordingAdapter } from "./test-fakes.ts";
 const isWindows = process.platform === "win32";
 const NAMES = isWindows ? ["bgb.exe", "bgbw.exe"] : ["bgb"];
 const MAIN = NAMES[0] ?? "bgb";
+
+// Each test copies and runs real Bun binaries (`--version`); under a loaded full-suite run that exceeds 5 s.
+setDefaultTimeout(60_000);
 
 let root: string;
 let ctx: CoreContext;

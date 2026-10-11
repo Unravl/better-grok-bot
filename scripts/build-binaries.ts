@@ -102,6 +102,9 @@ async function compile(args: string[]): Promise<void> {
 		"--compile",
 		"--no-compile-autoload-dotenv",
 		"--no-compile-autoload-bunfig",
+		// @electron/asar requires `original-fs` only inside Electron; never reached in bgb.
+		"--external",
+		"original-fs",
 		"--minify",
 		"--define",
 		"BGB_COMPILED=true",
