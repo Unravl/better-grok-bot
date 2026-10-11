@@ -1,17 +1,25 @@
 import { readFile } from "node:fs/promises";
-import { runPowerShell } from "./powershell.ts";
+import { FFIType, type Library, dlopen, ptr } from "bun:ffi";
 
-/** A process, distinguishable from a later process that reuses its pid. */
+/**
+ * A process, distinguishable from a later process that reuses its pid. Both fields come from the OS
+ * source {@link processStartTime} reads, so the same process always yields identical values and
+ * {@link identityAlive} compares them exactly.
+ */
 export interface ProcessIdentity {
 	pid: number;
-	/** Identifies the OS boot; `null` where unavailable (Windows). */
+	/**
+	 * Identifies the OS boot (macOS `kern.boottime`, Linux `boot_id`). `null` on Windows, where the start
+	 * time is an absolute 100 ns creation timestamp that a process after a reboot cannot repeat.
+	 */
 	bootId: string | null;
-	/** Process start time in epoch ms; `null` when it could not be read. */
-	startTime: number | null;
+	/**
+	 * Process start time in epoch ms, at the OS's precision: Linux clock ticks since boot (10 ms), macOS
+	 * `ps -o lstart` (1 s; pids are handed out sequentially up to 99,999 before wrapping, so a reused pid
+	 * never starts in the same second), Windows `GetProcessTimes` creation time (truncated to 1 ms).
+	 */
+	startTime: number;
 }
-
-/** Start times read by different means (ps second precision, /proc ticks, PowerShell) agree within this. */
-const START_TIME_TOLERANCE_MS = 2_000;
 
 /** True while a process with this pid exists (including one we may not signal). */
 export function isAlive(pid: number): boolean {
@@ -45,7 +53,36 @@ async function linuxBootTimeSec(): Promise<number | null> {
 	return match?.[1] ? Number(match[1]) : null;
 }
 
-/** Start time of `pid` in epoch ms, or `null` if the process is gone or unreadable. */
+const PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+/** 100 ns intervals from 1601-01-01 (FILETIME epoch) to 1970-01-01. */
+const FILETIME_UNIX_EPOCH = 116_444_736_000_000_000n;
+
+const KERNEL32_SYMBOLS = {
+	OpenProcess: { args: [FFIType.u32, FFIType.bool, FFIType.u32], returns: FFIType.ptr },
+	GetProcessTimes: { args: [FFIType.ptr, FFIType.ptr, FFIType.ptr, FFIType.ptr, FFIType.ptr], returns: FFIType.bool },
+	CloseHandle: { args: [FFIType.ptr], returns: FFIType.bool },
+} as const;
+
+let kernel32: Library<typeof KERNEL32_SYMBOLS> | undefined;
+
+/** Windows: the creation time `GetProcessTimes` reports, without spawning PowerShell. */
+function win32StartTime(pid: number): number | null {
+	kernel32 ??= dlopen("kernel32.dll", KERNEL32_SYMBOLS);
+	const { OpenProcess, GetProcessTimes, CloseHandle } = kernel32.symbols;
+	const handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+	if (handle === null) return null;
+	try {
+		// creation, exit, kernel, user: four FILETIMEs (little-endian 64-bit counts of 100 ns).
+		const times = new BigUint64Array(4);
+		if (!GetProcessTimes(handle, ptr(times, 0), ptr(times, 8), ptr(times, 16), ptr(times, 24))) return null;
+		const creation = times[0] ?? 0n;
+		return creation > FILETIME_UNIX_EPOCH ? Number((creation - FILETIME_UNIX_EPOCH) / 10_000n) : null;
+	} finally {
+		CloseHandle(handle);
+	}
+}
+
+/** Start time of `pid` in epoch ms (precision per {@link ProcessIdentity.startTime}), or `null` if the process is gone or unreadable. */
 export async function processStartTime(pid: number): Promise<number | null> {
 	if (!isAlive(pid)) return null;
 	switch (process.platform) {
@@ -70,13 +107,12 @@ export async function processStartTime(pid: number): Promise<number | null> {
 			if (!Number.isFinite(ticks) || btime === null) return null;
 			return Math.round((btime + ticks / 100) * 1000);
 		}
-		case "win32": {
-			const out = await runPowerShell(
-				`$p=Get-Process -Id ${pid} -ErrorAction SilentlyContinue; if($p){[DateTimeOffset]::new($p.StartTime).ToUnixTimeMilliseconds()}`,
-			).catch(() => null);
-			const ms = out ? Number(out) : Number.NaN;
-			return Number.isFinite(ms) ? ms : null;
-		}
+		case "win32":
+			try {
+				return win32StartTime(pid);
+			} catch {
+				return null;
+			}
 		default:
 			return null;
 	}
@@ -84,7 +120,7 @@ export async function processStartTime(pid: number): Promise<number | null> {
 
 let bootIdPromise: Promise<string | null> | undefined;
 
-/** Identifies the current OS boot (memoized). */
+/** Identifies the current OS boot (memoized); `null` on Windows (see {@link ProcessIdentity.bootId}). */
 export function bootId(): Promise<string | null> {
 	bootIdPromise ??= (async () => {
 		switch (process.platform) {
@@ -105,35 +141,44 @@ export function bootId(): Promise<string | null> {
 
 let selfPromise: Promise<ProcessIdentity> | undefined;
 
-/** This process's identity (memoized). */
+/**
+ * This process's identity (memoized), read from the same source as {@link processStartTime} so other
+ * processes verify it exactly. Throws when the start time is unreadable: an unverifiable record would
+ * never count as alive, so writing one would let anyone take this process's lock.
+ */
 export function selfIdentity(): Promise<ProcessIdentity> {
 	selfPromise ??= (async () => {
 		const pid = process.pid;
-		// Windows: avoid a PowerShell round trip per process; Bun's time origin is the process start.
-		const startTime =
-			process.platform === "win32" ? Math.round(performance.timeOrigin) : await processStartTime(pid);
+		const startTime = await processStartTime(pid);
+		if (startTime === null) {
+			selfPromise = undefined; // a later call retries
+			throw new Error(`cannot read the start time of this process (pid ${pid})`);
+		}
 		return { pid, bootId: await bootId(), startTime };
 	})();
 	return selfPromise;
 }
 
-/** True while the exact process described by `id` still runs (not a later process reusing its pid). */
+/**
+ * True only while the exact process described by `id` still runs: same boot and the same start time,
+ * compared exactly. A process whose start time can't be read (gone, or not ours to inspect) never
+ * counts as alive, so a reused pid is never mistaken for the recorded process and never signaled.
+ */
 export async function identityAlive(id: ProcessIdentity): Promise<boolean> {
 	if (!isAlive(id.pid)) return false;
-	const currentBoot = await bootId();
-	if (id.bootId !== null && currentBoot !== null && id.bootId !== currentBoot) return false;
-	if (id.startTime === null) return true;
-	const start = await processStartTime(id.pid);
-	if (start === null) return isAlive(id.pid);
-	return Math.abs(start - id.startTime) <= START_TIME_TOLERANCE_MS;
+	if (id.bootId !== (await bootId())) return false;
+	return (await processStartTime(id.pid)) === id.startTime;
 }
 
-/** Parses an unknown value into a {@link ProcessIdentity}, or `undefined` when malformed. */
+/**
+ * Parses an unknown value into a {@link ProcessIdentity}, or `undefined` when malformed. A record
+ * without a start time is unverifiable and therefore malformed.
+ */
 export function asProcessIdentity(value: unknown): ProcessIdentity | undefined {
 	if (typeof value !== "object" || value === null) return undefined;
 	const { pid, bootId: boot, startTime } = value as Record<string, unknown>;
 	if (typeof pid !== "number" || !Number.isInteger(pid) || pid <= 0) return undefined;
 	if (boot !== null && typeof boot !== "string") return undefined;
-	if (startTime !== null && typeof startTime !== "number") return undefined;
+	if (typeof startTime !== "number" || !Number.isFinite(startTime)) return undefined;
 	return { pid, bootId: boot, startTime };
 }

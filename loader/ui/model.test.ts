@@ -11,6 +11,22 @@ describe("plugin rows", () => {
 		expect(row?.fields).toEqual([]);
 	});
 
+	test("an invalid duplicate of an id gets its own row key and keeps its own state", () => {
+		const agent = [
+			pluginStatus({ id: "push-to-talk", name: "Push to talk", source: "bundled" }),
+			pluginStatus({ id: "push-to-talk", name: "push-to-talk", source: "community", state: "invalid", errors: ['id "push-to-talk" is reserved'] }),
+		];
+		const local = [
+			pluginStatus({ id: "push-to-talk", source: "bundled", state: "runtime-failed", errors: ["runtime threw: boom"] }),
+			pluginStatus({ id: "push-to-talk", source: "community", state: "invalid", errors: ['id "push-to-talk" is reserved'] }),
+		];
+		const rows = buildPluginRows(agent, [], local);
+		expect(rows.map((row) => [row.key, row.state, row.description])).toEqual([
+			["bundled:push-to-talk", "runtime-failed", "runtime threw: boom"],
+			["community:push-to-talk", "invalid", 'id "push-to-talk" is reserved'],
+		]);
+	});
+
 	test("hides core hooks; bundled first, then community and dev by name, with source labels", () => {
 		const rows = buildPluginRows(
 			[

@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import { existsSync } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import * as path from "node:path";
+import { zipSync } from "fflate";
 import { type BridgeEvents, type BuildManifest, HELPER_CODES, type PluginStatus, type ThemeInfo } from "../../sdk/index.ts";
 import { waitForAgent } from "../agent-record.ts";
 import { type BridgeClient, connectBridge, openWebSocket } from "../bridge/client.ts";
@@ -12,6 +13,7 @@ import type { CommandRunner } from "../services/command.ts";
 import { HELPER_APP_NAME, HELPER_LABEL } from "../services/helper.ts";
 import { mutateState, readState } from "../state.ts";
 import { sha256Hex } from "../update/download.ts";
+import type { BinaryOps } from "../update/self-update.ts";
 import { BGB_VERSION } from "../version.ts";
 import type { AgentDeps } from "./agent.ts";
 import { runAgent, runSelfTest } from "./main.ts";
@@ -360,3 +362,86 @@ test("agent --self-test serves /health on an ephemeral port and prints ok <versi
 	}
 	expect(existsSync(ctx.paths.agentRecord)).toBe(false);
 });
+
+test("two concurrent update.apply requests run one install transaction and keep the rollback copy", async () => {
+	// A Windows layout, so the release is a zip that installs without external tools.
+	await ctx.cleanup();
+	platform = fakePlatform("win32", { binName: () => "bgb.exe" });
+	ctx = await tempContext(platform);
+	const port = freePort();
+	config = await mutateConfig(ctx.paths, (draft) => {
+		draft.bridgePort = port;
+		draft.autoUpdate = false;
+	});
+	await mkdir(ctx.paths.bin, { recursive: true });
+	await writeFile(path.join(ctx.paths.bin, "bgb.exe"), "old");
+
+	const NEW = "9.9.9";
+	const archive = zipSync({ "bgb.exe": new TextEncoder().encode("new") });
+	const base = `https://github.com/Unravl/better-grok-bot/releases/download/v${NEW}`;
+	const sumsRequested = Promise.withResolvers<void>();
+	const release = Promise.withResolvers<void>();
+	let sumsDownloads = 0;
+	const fetchFn = async (input: string | URL | Request): Promise<Response> => {
+		const url = String(input);
+		if (url === "https://api.github.com/repos/Unravl/better-grok-bot/releases/latest") return Response.json({ tag_name: `v${NEW}` });
+		if (url === `${base}/SHA256SUMS`) {
+			sumsDownloads++;
+			sumsRequested.resolve();
+			await release.promise;
+			return new Response(`${sha256Hex(archive)}  bgb-windows-x64.zip\n`);
+		}
+		if (url === `${base}/bgb-windows-x64.zip`) return new Response(archive);
+		return new Response("missing", { status: 404 });
+	};
+	const transactions: string[] = [];
+	const binaries: BinaryOps = {
+		async stageBinaries(c, srcDir) {
+			transactions.push("stage");
+			const staged = path.join(c.paths.bin, `.staged-${transactions.length}`);
+			await mkdir(staged, { recursive: true });
+			await copyFile(path.join(srcDir, "bgb.exe"), path.join(staged, "bgb.exe"));
+			return staged;
+		},
+		// Mirrors the real transaction: discard previous/, move the installed binary into it, install the staged one.
+		async commitBinaries(c, staged) {
+			transactions.push("commit");
+			await rm(c.paths.binPrevious, { recursive: true, force: true });
+			await mkdir(c.paths.binPrevious, { recursive: true });
+			await rename(path.join(c.paths.bin, "bgb.exe"), path.join(c.paths.binPrevious, "bgb.exe"));
+			await rename(path.join(staged, "bgb.exe"), path.join(c.paths.bin, "bgb.exe"));
+			await rm(staged, { recursive: true, force: true });
+		},
+		async restorePrevious() {
+			transactions.push("restore");
+		},
+	};
+	const spawned: string[][] = [];
+	const { running } = await startAgent(fakeOps(), {
+		update: {
+			compiled: true,
+			fetch: fetchFn,
+			arch: "x64",
+			binaries: async () => binaries,
+			run: async (argv) => (argv.includes("--self-test") ? { code: 0, stdout: `ok ${NEW}\n`, stderr: "" } : { code: 1, stdout: "", stderr: "" }),
+			spawnDetached: (argv) => spawned.push([...argv]),
+		},
+	});
+	const cli = await client();
+
+	const first = cli.request("update.apply", {});
+	await sumsRequested.promise;
+	const second = cli.request("update.apply", {});
+	// Requests on one connection are dispatched in order, so once this answers, the second apply has started.
+	await cli.request("status.get", {});
+	release.resolve();
+	expect(await Promise.all([first, second])).toEqual([{}, {}]);
+
+	expect(sumsDownloads).toBe(1);
+	expect(transactions).toEqual(["stage", "commit"]);
+	expect(await readFile(path.join(ctx.paths.binPrevious, "bgb.exe"), "utf8")).toBe("old");
+	expect(await readFile(path.join(ctx.paths.bin, "bgb.exe"), "utf8")).toBe("new");
+	expect(spawned.map((argv) => argv.slice(1, 3))).toEqual([["update-watchdog", "--expect"]]);
+	expect((await readState(ctx.paths)).update.pending?.version).toBe(NEW);
+	expect(await running).toBe(0);
+}, TIMEOUT);

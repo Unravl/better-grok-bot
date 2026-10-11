@@ -288,7 +288,7 @@ export function createBgbSection(React: ReactLike, deps: SectionDeps): (props: S
 		const pluginRows = buildPluginRows(status?.plugins ?? null, manifest.plugins, deps.localStatus()).flatMap((plugin) => [
 			row(
 				ui,
-				`plugin:${plugin.id}`,
+				`plugin:${plugin.key}`,
 				plugin.label,
 				plugin.description,
 				group(

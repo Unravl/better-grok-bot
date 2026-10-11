@@ -65,7 +65,7 @@ const MANIFEST: BuildManifest = {
 const LIVE_AGENT: AgentRecord = {
 	pid: 999_999,
 	bootId: null,
-	startTime: null,
+	startTime: 0,
 	version: "0.1.0",
 	port: 39320,
 	startedAt: "2026-10-11T00:00:00.000Z",

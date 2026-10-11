@@ -56,7 +56,16 @@ function isUiDeps(value: Partial<UiDeps>): value is UiDeps {
 
 export function createRuntime(options: RuntimeOptions): LoaderRuntime {
 	const { manifest, hooks, services, log } = options;
-	const manifestPlugins = new Map(manifest.plugins.map((plugin) => [plugin.id, plugin]));
+	/**
+	 * Per id, the entry `define()` binds to: the active one when there is one, else the first. A community or
+	 * dev plugin reusing a reserved or taken id is listed as a second, `invalid` entry with the same id; it is
+	 * shown by `status()` but must never shadow the plugin that runs.
+	 */
+	const manifestPlugins = new Map<string, PluginStatus>();
+	for (const plugin of manifest.plugins) {
+		const known = manifestPlugins.get(plugin.id);
+		if (known === undefined || (known.state !== "active" && plugin.state === "active")) manifestPlugins.set(plugin.id, plugin);
+	}
 	const defined = new Set<string>();
 	const loaded = new Map<string, LoadedPlugin>();
 	/** Runtime error per plugin downgraded from `active` to `runtime-failed`. */
@@ -241,7 +250,7 @@ export function createRuntime(options: RuntimeOptions): LoaderRuntime {
 
 		status(): PluginStatus[] {
 			return manifest.plugins.map((plugin) => {
-				const runtimeError = runtimeFailures.get(plugin.id);
+				const runtimeError = manifestPlugins.get(plugin.id) === plugin ? runtimeFailures.get(plugin.id) : undefined;
 				return {
 					...plugin,
 					state: runtimeError === undefined ? plugin.state : "runtime-failed",

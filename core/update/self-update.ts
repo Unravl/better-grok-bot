@@ -13,6 +13,7 @@ import { spawnDetached } from "../agent/restart.ts";
 import { readConfig } from "../config.ts";
 import type { CoreContext } from "../context.ts";
 import { errorMessage } from "../errors.ts";
+import { withBinariesLock } from "../lock.ts";
 import { type CommandRunner, runCommand } from "../services/command.ts";
 import { mutateState, readState } from "../state.ts";
 import { BGB_COMPILED, BGB_VERSION } from "../version.ts";
@@ -173,7 +174,9 @@ async function extractArchive(
  * Installs the latest release over `DATA/bin`: download + verify against `SHA256SUMS` (nothing in
  * `bin/` changes before that passes), extract, stage, commit, and run `bin/bgb agent --self-test`;
  * a failing self-test restores `bin/previous/`. Failures are recorded in `state.update.error` and
- * returned as `{state:"error"}`.
+ * returned as `{state:"error"}`. Everything from the download to `update.pending` runs under the
+ * `binaries` lock; while another install or update holds it, throws `BgbError("conflict")` and
+ * changes nothing.
  */
 export async function applyUpdate(ctx: CoreContext, opts: ApplyUpdateOptions): Promise<UpdateStatus> {
 	const deps = resolveDeps(ctx, opts.deps);
@@ -195,56 +198,62 @@ export async function applyUpdate(ctx: CoreContext, opts: ApplyUpdateOptions): P
 		return { state: "error", current: BGB_VERSION, latest: version, error: message };
 	};
 
-	opts.onStatus?.({ state: "downloading", current: BGB_VERSION, latest: version });
-	let asset: string;
-	let bytes: Uint8Array;
-	try {
-		asset = updateAssetName(ctx.platform.id, deps.arch);
-		const base = `https://github.com/${REPO}/releases/download/${tag}`;
-		const sumsText = new TextDecoder().decode(
-			await fetchBytes(deps.fetch, `${base}/SHA256SUMS`, { timeoutMs: 30_000, maxBytes: 1024 * 1024 }),
-		);
-		const expected = parseSha256Sums(sumsText).get(asset);
-		if (!expected) throw new Error(`SHA256SUMS of ${tag} lists no ${asset}`);
-		bytes = await fetchBytes(deps.fetch, `${base}/${asset}`, { timeoutMs: 600_000, maxBytes: 300 * 1024 * 1024 });
-		if (sha256Hex(bytes) !== expected) throw new Error(`checksum mismatch for ${asset}`);
-	} catch (error) {
-		return fail(`${version} download failed: ${errorMessage(error)}`);
-	}
-
-	const binaries = await deps.binaries();
-	const workDir = path.join(ctx.paths.bin, `.download-${randomBytes(6).toString("hex")}`);
-	try {
-		const extracted = path.join(workDir, "extracted");
-		await extractArchive(asset, bytes, workDir, extracted, deps.run);
-		if (!existsSync(path.join(extracted, ctx.platform.binName()))) throw new Error(`${asset} has no ${ctx.platform.binName()}`);
-		const staged = await binaries.stageBinaries(ctx, extracted, version);
-		await binaries.commitBinaries(ctx, staged);
-	} catch (error) {
-		return fail(`${version} could not be installed: ${errorMessage(error)}`);
-	} finally {
-		await rm(workDir, { recursive: true, force: true });
-	}
-
-	const selfTest = await deps.run([path.join(ctx.paths.bin, ctx.platform.binName()), "agent", "--self-test"], {
-		timeoutMs: 30_000,
-		env: { BGB_DATA_DIR: ctx.paths.root },
-	});
-	if (selfTest.code !== 0 || !selfTest.stdout.includes(`ok ${version}`)) {
-		ctx.log.error(`update: ${version} self-test output: ${(selfTest.stderr || selfTest.stdout).trim()}`);
+	// One transaction over `bin/` at a time: a second update (another request, the 6-hourly tick, or a
+	// `bgb update` in another process) would discard the `previous/` this one's rollback depends on.
+	const failed = await withBinariesLock(ctx.paths, async (): Promise<UpdateStatus | null> => {
+		opts.onStatus?.({ state: "downloading", current: BGB_VERSION, latest: version });
+		let asset: string;
+		let bytes: Uint8Array;
 		try {
-			await binaries.restorePrevious(ctx);
+			asset = updateAssetName(ctx.platform.id, deps.arch);
+			const base = `https://github.com/${REPO}/releases/download/${tag}`;
+			const sumsText = new TextDecoder().decode(
+				await fetchBytes(deps.fetch, `${base}/SHA256SUMS`, { timeoutMs: 30_000, maxBytes: 1024 * 1024 }),
+			);
+			const expected = parseSha256Sums(sumsText).get(asset);
+			if (!expected) throw new Error(`SHA256SUMS of ${tag} lists no ${asset}`);
+			bytes = await fetchBytes(deps.fetch, `${base}/${asset}`, { timeoutMs: 600_000, maxBytes: 300 * 1024 * 1024 });
+			if (sha256Hex(bytes) !== expected) throw new Error(`checksum mismatch for ${asset}`);
 		} catch (error) {
-			ctx.log.error(`update: restoring the previous binaries failed: ${errorMessage(error)}`);
+			return fail(`${version} download failed: ${errorMessage(error)}`);
 		}
-		return fail(`${version} failed its self-test`);
-	}
 
-	await mutateState(ctx.paths, (state) => {
-		state.update.error = null;
-		state.update.latest = version;
-		if (opts.restartAgent) state.update.pending = { version, previous: BGB_VERSION, at: new Date().toISOString() };
+		const binaries = await deps.binaries();
+		const workDir = path.join(ctx.paths.bin, `.download-${randomBytes(6).toString("hex")}`);
+		try {
+			const extracted = path.join(workDir, "extracted");
+			await extractArchive(asset, bytes, workDir, extracted, deps.run);
+			if (!existsSync(path.join(extracted, ctx.platform.binName()))) throw new Error(`${asset} has no ${ctx.platform.binName()}`);
+			const staged = await binaries.stageBinaries(ctx, extracted, version);
+			await binaries.commitBinaries(ctx, staged);
+		} catch (error) {
+			return fail(`${version} could not be installed: ${errorMessage(error)}`);
+		} finally {
+			await rm(workDir, { recursive: true, force: true });
+		}
+
+		const selfTest = await deps.run([path.join(ctx.paths.bin, ctx.platform.binName()), "agent", "--self-test"], {
+			timeoutMs: 30_000,
+			env: { BGB_DATA_DIR: ctx.paths.root },
+		});
+		if (selfTest.code !== 0 || !selfTest.stdout.includes(`ok ${version}`)) {
+			ctx.log.error(`update: ${version} self-test output: ${(selfTest.stderr || selfTest.stdout).trim()}`);
+			try {
+				await binaries.restorePrevious(ctx);
+			} catch (error) {
+				ctx.log.error(`update: restoring the previous binaries failed: ${errorMessage(error)}`);
+			}
+			return fail(`${version} failed its self-test`);
+		}
+
+		await mutateState(ctx.paths, (state) => {
+			state.update.error = null;
+			state.update.latest = version;
+			if (opts.restartAgent) state.update.pending = { version, previous: BGB_VERSION, at: new Date().toISOString() };
+		});
+		return null;
 	});
+	if (failed !== null) return failed;
 	ctx.log.info(`update: installed ${version} (was ${BGB_VERSION})`);
 	if (opts.restartAgent) {
 		const watchdog = path.join(ctx.paths.binPrevious, ctx.platform.binName());
