@@ -4,8 +4,9 @@
  *
  *   bun scripts/bump-version.ts <x.y.z> [--root <dir>]
  *
- * Sets the root `package.json` version, renames `## [Unreleased]` in `CHANGELOG.md` to
- * `## [x.y.z] - <UTC date>` and adds a fresh empty `## [Unreleased]` above it.
+ * Sets the root `package.json` version (unchanged when it already is `x.y.z`, e.g. the first
+ * release), renames `## [Unreleased]` in `CHANGELOG.md` to `## [x.y.z] - <UTC date>` and adds a
+ * fresh empty `## [Unreleased]` above it. A version that already has a changelog section is refused.
  */
 import { readFile, writeFile } from "node:fs/promises";
 import * as path from "node:path";
@@ -28,7 +29,7 @@ await runMain("bump-version", async () => {
 	const packageText = await readFile(packagePath, "utf8");
 	const parsed: unknown = JSON.parse(packageText);
 	const current = parsed && typeof parsed === "object" && "version" in parsed ? parsed.version : undefined;
-	if (current === version) throw new ScriptError(`package.json is already at ${version}`);
+	// The first release's version is already set at bootstrap; only the changelog is finalized then.
 	// Replace only the top-level "version" value so the file keeps its formatting.
 	const versionLine = /^(\t| {2})"version":\s*"[^"]*"/m;
 	if (!versionLine.test(packageText)) throw new ScriptError(`no top-level "version" field in ${packagePath}`);
@@ -44,7 +45,7 @@ await runMain("bump-version", async () => {
 	const date = new Date().toISOString().slice(0, 10);
 	const nextChangelog = changelog.replace(unreleased, `## [Unreleased]\n\n## [${version}] - ${date}`);
 
-	await writeFile(packagePath, nextPackage);
+	if (current !== version) await writeFile(packagePath, nextPackage);
 	await writeFile(changelogPath, nextChangelog);
 	console.log(`${String(current)} → ${version}`);
 	return 0;
