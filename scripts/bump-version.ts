@@ -6,12 +6,14 @@
  *
  * Sets the root `package.json` version (unchanged when it already is `x.y.z`, e.g. the first
  * release), renames `## [Unreleased]` in `CHANGELOG.md` to `## [x.y.z] - <UTC date>` and adds a
- * fresh empty `## [Unreleased]` above it. A version that already has a changelog section is refused.
+ * fresh empty `## [Unreleased]` above it, and rewrites the README's release badge
+ * (`docs/assets/badges/release.svg`). A version that already has a changelog section is refused.
  */
 import { readFile, writeFile } from "node:fs/promises";
 import * as path from "node:path";
 import { parseArgs } from "node:util";
 import { REPO_ROOT, runMain, ScriptError } from "./lib.ts";
+import { releaseBadgeSvg } from "./release-badge.ts";
 
 await runMain("bump-version", async () => {
 	const { values, positionals } = parseArgs({
@@ -47,6 +49,7 @@ await runMain("bump-version", async () => {
 
 	if (current !== version) await writeFile(packagePath, nextPackage);
 	await writeFile(changelogPath, nextChangelog);
+	await writeFile(path.join(root, "docs", "assets", "badges", "release.svg"), releaseBadgeSvg(version));
 	console.log(`${String(current)} → ${version}`);
 	return 0;
 });

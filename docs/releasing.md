@@ -41,7 +41,7 @@ while the helper's bytes stay the same, so a BGB update reinstalls a helper only
 2. Bump and tag:
 
    ```sh
-   bun scripts/bump-version.ts X.Y.Z   # package.json + CHANGELOG.md
+   bun scripts/bump-version.ts X.Y.Z   # package.json + CHANGELOG.md + README release badge
    git commit -am "chore: release X.Y.Z"
    git tag vX.Y.Z
    git push origin main vX.Y.Z

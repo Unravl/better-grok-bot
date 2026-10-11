@@ -7,15 +7,15 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Unravl/better-grok-bot/actions/workflows/ci.yml"><img alt="Tests" src="https://img.shields.io/github/actions/workflow/status/Unravl/better-grok-bot/ci.yml?branch=main&label=tests&style=flat-square"></a>
-  <a href="https://github.com/Unravl/better-grok-bot/actions/workflows/release.yml"><img alt="Release build" src="https://img.shields.io/github/actions/workflow/status/Unravl/better-grok-bot/release.yml?label=release%20build&style=flat-square"></a>
-  <a href="https://github.com/Unravl/better-grok-bot/actions/workflows/canary.yml"><img alt="Upstream canary" src="https://img.shields.io/github/actions/workflow/status/Unravl/better-grok-bot/canary.yml?branch=main&label=upstream%20canary&style=flat-square"></a>
-  <a href="https://github.com/Unravl/better-grok-bot/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/Unravl/better-grok-bot?style=flat-square"></a>
-  <a href="https://github.com/Unravl/better-grok-bot/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/Unravl/better-grok-bot/total?style=flat-square"></a>
-  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/Unravl/better-grok-bot?style=flat-square"></a>
-  <a href="#verified-on"><img alt="Platforms: macOS, Windows, Linux" src="https://img.shields.io/badge/platforms-macOS%20%7C%20Windows%20%7C%20Linux-555?style=flat-square"></a>
-  <a href="https://bun.sh"><img alt="Built with Bun" src="https://img.shields.io/badge/built%20with-Bun-000?style=flat-square&logo=bun&logoColor=white"></a>
-  <a href="https://www.typescriptlang.org"><img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat-square&logo=typescript&logoColor=white"></a>
+  <a href="https://github.com/Unravl/better-grok-bot/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Unravl/better-grok-bot/actions/workflows/ci.yml/badge.svg?branch=main"></a>
+  <a href="https://github.com/Unravl/better-grok-bot/actions/workflows/release.yml"><img alt="Release build" src="https://github.com/Unravl/better-grok-bot/actions/workflows/release.yml/badge.svg"></a>
+  <a href="https://github.com/Unravl/better-grok-bot/actions/workflows/canary.yml"><img alt="Upstream canary" src="https://github.com/Unravl/better-grok-bot/actions/workflows/canary.yml/badge.svg?branch=main"></a>
+  <br>
+  <a href="https://github.com/Unravl/better-grok-bot/releases/latest"><img alt="Latest release" src="docs/assets/badges/release.svg"></a>
+  <a href="LICENSE"><img alt="License: MIT" src="docs/assets/badges/license.svg"></a>
+  <a href="#verified-on"><img alt="Platforms: macOS, Windows, Linux" src="docs/assets/badges/platforms.svg"></a>
+  <a href="https://bun.sh"><img alt="Built with Bun" src="docs/assets/badges/bun.svg"></a>
+  <a href="https://www.typescriptlang.org"><img alt="TypeScript: strict" src="docs/assets/badges/typescript.svg"></a>
 </p>
 
 <p align="center">
