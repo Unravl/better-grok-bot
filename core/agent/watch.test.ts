@@ -107,4 +107,5 @@ test("watchData reports config, plugin, theme and dev changes by kind", async ()
 	});
 	await expectChange("themes", () => writeFile(path.join(paths.themes, "x.theme.css"), "/** @name X */"));
 	await expectChange("dev", () => writeFile(path.join(devDir, "plugin.ts"), "export default {}"));
-});
+	// Five sequential changes, each waited for up to 5 s: FSEvents latency on CI runners exceeds the 5 s default.
+}, 30_000);
