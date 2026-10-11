@@ -98,12 +98,17 @@ interface PatchOutcome {
 	expected: number;
 }
 
+interface RendererRun {
+	outcomes: PatchOutcome[];
+	edited: Map<string, string>;
+}
+
 /**
  * Runs every core hook (in order), then every bundled plugin (by id) over the real renderer in
  * memory, committing a plugin's edits only when all its patches match, as the build does: later
  * plugins see earlier edits. Nothing is written to disk.
  */
-async function patchRealRenderer(): Promise<{ outcomes: PatchOutcome[]; edited: Map<string, string> }> {
+async function patchRealRenderer(): Promise<RendererRun> {
 	const files = readdirSync(RENDERER_DIR, { recursive: true, withFileTypes: true })
 		.filter((entry) => entry.isFile())
 		.map((entry) => path.relative(RENDERER_DIR, path.join(entry.parentPath, entry.name)).split(path.sep).join("/"))
@@ -140,17 +145,19 @@ async function patchRealRenderer(): Promise<{ outcomes: PatchOutcome[]; edited: 
 }
 
 describe.skipIf(!existsSync(path.join(RENDERER_DIR, "index.html")))("patches against the real Grok Bot renderer", () => {
-	const run = patchRealRenderer();
+	// Lazy: Bun runs a skipped describe's body too, and an eager run would reject without the renderer.
+	let pending: Promise<RendererRun> | undefined;
+	const run = (): Promise<RendererRun> => (pending ??= patchRealRenderer());
 
 	test.each([...CORE_HOOKS.map((hook) => hook.id), ...ids])("%s: every patch matches exactly its expect count", async (id) => {
-		const { outcomes } = await run;
+		const { outcomes } = await run();
 		const mine = outcomes.filter((outcome) => outcome.plugin === id);
 		expect(mine.length).toBeGreaterThan(0);
 		expect(mine.filter((outcome) => outcome.matches !== outcome.expected)).toEqual([]);
 	});
 
 	test("every patched file still parses as JavaScript", async () => {
-		const { edited } = await run;
+		const { edited } = await run();
 		const transpiler = new Bun.Transpiler({ loader: "js" });
 		const unparsable: string[] = [];
 		for (const [file, text] of edited) {

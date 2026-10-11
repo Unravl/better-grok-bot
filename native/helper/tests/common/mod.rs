@@ -2,6 +2,8 @@
 //! `/helper` endpoint, and a real `bgb-helper` process connected to it.
 
 #![allow(dead_code)]
+// The upgrade callback's error type is tungstenite's `ErrorResponse`, which we don't choose.
+#![allow(clippy::result_large_err)]
 
 use serde_json::{json, Value};
 use std::io::ErrorKind;
