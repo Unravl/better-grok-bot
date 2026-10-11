@@ -1,0 +1,182 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 800" width="1280" height="800" role="img" aria-label="Illustration of Grok Bot with Better Grok Bot features: sidebar folders, voice dock, weekly usage, chat search and music ducking">
+<title>Better Grok Bot features in the Grok Bot window (illustration)</title>
+<defs><style>text{font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Helvetica, Arial, sans-serif}
+.h1{font-size:19px;font-weight:700;fill:#f5f5f7}
+.h2{font-size:15px;font-weight:700;fill:#f5f5f7}
+.fd{font-size:13px;font-weight:600;fill:#b9b9c1}
+.bn{font-size:14px;font-weight:600;fill:#f2f2f4}
+.bn2{font-size:13px;font-weight:600;fill:#e9e9ee}
+.sn{font-size:12px;fill:#8b8b95}
+.sn2{font-size:12px;fill:#c9c9d1;font-weight:600}
+.mu{font-size:12px;fill:#8b8b95}
+.ul{font-size:12px;font-weight:600;fill:#c9c9d1}
+.kc{font-size:11px;font-weight:600;fill:#e4e4e7}
+.kc2{font-size:12px;fill:#e4e4e7}
+.st{font-size:13.5px;fill:#f4f4f5}
+.msg{font-size:14px;fill:#e6e6ea}
+.ph{font-size:14px;fill:#71717a}
+.lb{font-size:13px;fill:#e4e4e7}
+.chip{font-size:12px;font-weight:600;fill:#d9d6fe}
+.co{font-size:11.5px;font-weight:700;fill:#ddd6fe;letter-spacing:.2px}
+.av{font-weight:700;fill:#fff}</style>
+<linearGradient id="ag" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8B5CF6"/><stop offset=".52" stop-color="#6366F1"/><stop offset="1" stop-color="#22D3EE"/></linearGradient>
+<linearGradient id="ab" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#8B5CF6"/><stop offset=".52" stop-color="#6366F1"/><stop offset="1" stop-color="#22D3EE"/></linearGradient>
+<linearGradient id="ac" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8B5CF6"/><stop offset=".52" stop-color="#6366F1"/><stop offset="1" stop-color="#22D3EE"/></linearGradient>
+<clipPath id="win"><rect x="56" y="40" width="1168" height="700" rx="18"/></clipPath>
+<filter id="sh" x="-10%" y="-10%" width="120%" height="125%"><feGaussianBlur stdDeviation="16"/></filter>
+<filter id="sh2" x="-20%" y="-20%" width="140%" height="150%"><feGaussianBlur stdDeviation="14"/></filter>
+</defs>
+<rect x="56" y="58" width="1168" height="700" rx="18" fill="#000" opacity=".5" filter="url(#sh)"/>
+<g clip-path="url(#win)">
+<rect x="56" y="40" width="1168" height="700" fill="#0b0b0d"/>
+<rect x="56" y="40" width="300" height="700" fill="#131316"/>
+<path d="M356 40V740" stroke="#fff" stroke-opacity=".07"/>
+</g>
+<rect x="56.5" y="40.5" width="1167" height="699" rx="18" fill="none" stroke="#fff" stroke-opacity=".12"/>
+<circle cx="80" cy="64" r="6" fill="#ff5f57"/>
+<circle cx="100" cy="64" r="6" fill="#febc2e"/>
+<circle cx="120" cy="64" r="6" fill="#28c840"/>
+<circle cx="300" cy="64" r="13" fill="#fff" fill-opacity=".06"/>
+<path transform="translate(293.5 57.5)" d="M7 12.5A5.5 5.5 0 1 0 7 1.5a5.5 5.5 0 0 0 0 11zM11 11l3.5 3.5" fill="none" stroke="#d4d4d8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="332" cy="64" r="13" fill="#fff" fill-opacity=".06"/>
+<path transform="translate(325.5 57.5)" d="M8 2v12M2 8h12" fill="none" stroke="#d4d4d8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="78" y="112" class="h1">Better Grok Bot</text>
+<path transform="translate(74 140)" d="M3.5 6 8 10.5 12.5 6" fill="none" stroke="#8b8b94" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<path transform="translate(94 140)" d="M1.5 4.5A1.5 1.5 0 0 1 3 3h3.2l1.6 1.6H13A1.5 1.5 0 0 1 14.5 6v5.5A1.5 1.5 0 0 1 13 13H3a1.5 1.5 0 0 1-1.5-1.5z" fill="none" stroke="#a1a1aa" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="118" y="152" class="fd">Work</text>
+<text x="338" y="152" class="mu" text-anchor="end">3</text>
+<rect x="68" y="164" width="276" height="48" rx="11" fill="#fff" fill-opacity=".08"/>
+<circle cx="106" cy="188" r="15" fill="url(#ag)"/>
+<text x="106" y="193.4" text-anchor="middle" class="av" font-size="14">C</text>
+<text x="130" y="184" class="bn">Chief of Staff</text>
+<text x="130" y="201" class="sn">On a voice call · keep-alive on</text>
+<circle cx="106" cy="238" r="15" fill="#F59E0B"/>
+<text x="106" y="243.4" text-anchor="middle" class="av" font-size="14">I</text>
+<text x="130" y="234" class="bn">Inbox</text>
+<text x="130" y="251" class="sn">Triaged 12 new emails</text>
+<circle cx="106" cy="288" r="15" fill="#10B981"/>
+<text x="106" y="293.4" text-anchor="middle" class="av" font-size="14">R</text>
+<text x="130" y="284" class="bn">Research</text>
+<text x="130" y="301" class="sn">Notes on the MCP spec</text>
+<path transform="translate(74 324)" d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="#8b8b94" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<path transform="translate(94 324)" d="M1.5 4.5A1.5 1.5 0 0 1 3 3h3.2l1.6 1.6H13A1.5 1.5 0 0 1 14.5 6v5.5A1.5 1.5 0 0 1 13 13H3a1.5 1.5 0 0 1-1.5-1.5z" fill="none" stroke="#a1a1aa" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="118" y="336" class="fd">Writing</text>
+<text x="338" y="336" class="mu" text-anchor="end">4</text>
+<path transform="translate(74 356)" d="M3.5 6 8 10.5 12.5 6" fill="none" stroke="#8b8b94" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<path transform="translate(94 356)" d="M1.5 4.5A1.5 1.5 0 0 1 3 3h3.2l1.6 1.6H13A1.5 1.5 0 0 1 14.5 6v5.5A1.5 1.5 0 0 1 13 13H3a1.5 1.5 0 0 1-1.5-1.5z" fill="none" stroke="#a1a1aa" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="118" y="368" class="fd">Personal</text>
+<text x="338" y="368" class="mu" text-anchor="end">2</text>
+<circle cx="106" cy="404" r="15" fill="#EC4899"/>
+<text x="106" y="409.4" text-anchor="middle" class="av" font-size="14">T</text>
+<text x="130" y="400" class="bn">Travel</text>
+<text x="130" y="417" class="sn">Lisbon itinerary, day 2</text>
+<circle cx="106" cy="454" r="15" fill="#3B82F6"/>
+<text x="106" y="459.4" text-anchor="middle" class="av" font-size="14">F</text>
+<text x="130" y="450" class="bn">Fitness</text>
+<text x="130" y="467" class="sn">Tuesday: upper body</text>
+<g><rect x="166" y="138" width="138" height="22" rx="11" fill="#8B5CF6" fill-opacity=".16" stroke="url(#ac)" stroke-width="1.2"/>
+<path transform="translate(174 143) scale(.75)" d="M8 1Q8.8 7.2 15 8 8.8 8.8 8 15 7.2 8.8 1 8 7.2 7.2 8 1Z" fill="url(#ac)"/>
+<text x="190" y="153" class="co">Sidebar folders</text>
+</g>
+<rect x="68" y="514" width="276" height="128" rx="16" fill="#1b1b1f" stroke="#fff" stroke-opacity=".09"/>
+<circle cx="94" cy="543" r="13" fill="url(#ag)"/>
+<text x="94" y="547.68" text-anchor="middle" class="av" font-size="12">C</text>
+<text x="116" y="539" class="bn">Chief of Staff</text>
+<circle cx="120" cy="552.5" r="3.5" fill="#22C55E"/>
+<text x="128" y="556" class="sn">Connected · 3:12:45</text>
+<circle cx="98" cy="590" r="17" fill="#2a2a30"/>
+<path transform="translate(90 582)" d="M2.5 3.5h11M2.5 8h11M2.5 12.5h7" fill="none" stroke="#e4e4e7" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="140" cy="590" r="17" fill="url(#ag)"/>
+<path transform="translate(132 582)" d="M2 6.5v3M5 4v8M8 2v12M11 4v8M14 6.5v3" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="182" cy="590" r="17" fill="#2a2a30"/>
+<path transform="translate(174 582)" d="M8 1.5a2.5 2.5 0 0 1 2.5 2.5v3.5a2.5 2.5 0 0 1-5 0V4A2.5 2.5 0 0 1 8 1.5zM3.5 7.5a4.5 4.5 0 0 0 9 0M8 12v2.5" fill="none" stroke="#e4e4e7" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="318" cy="590" r="17" fill="#EF4444"/>
+<path transform="translate(310 582)" d="M3.5 3.5l9 9M12.5 3.5l-9 9" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="110" y="630" class="sn" text-anchor="end">Hold</text>
+<rect x="116" y="616" width="82" height="20" rx="5" fill="#2a2a30" stroke="#fff" stroke-opacity=".14"/><path d="M118 634.5h78" stroke="#000" stroke-opacity=".5"/>
+<text x="157" y="630" class="kc" text-anchor="middle">Right Option</text>
+<text x="204" y="630" class="sn">to talk</text>
+<g><rect x="240" y="503" width="103" height="22" rx="11" fill="#8B5CF6" fill-opacity=".16" stroke="url(#ac)" stroke-width="1.2"/>
+<path transform="translate(248 508) scale(.75)" d="M8 1Q8.8 7.2 15 8 8.8 8.8 8 15 7.2 8.8 1 8 7.2 7.2 8 1Z" fill="url(#ac)"/>
+<text x="264" y="518" class="co">Voice dock</text>
+</g>
+<text x="70" y="666" class="ul">Weekly usage</text>
+<text x="342" y="666" class="sn" text-anchor="end">42% · Resets in 3 days</text>
+<rect x="70" y="674" width="272" height="6" rx="3" fill="#fff" fill-opacity=".1"/><rect x="70" y="674" width="114" height="6" rx="3" fill="url(#ab)"/>
+<rect x="68" y="692" width="276" height="34" rx="11" fill="#fff" fill-opacity=".05"/>
+<path transform="translate(80 701)" d="M5.5 1.5v3.5M10.5 1.5v3.5M3 5h10v2.5a5 5 0 0 1-10 0zM8 12.5v2.5" fill="none" stroke="#d4d4d8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="104" y="714" class="bn2">Connect Apps</text>
+<rect x="288" y="701" width="16" height="16" rx="4" fill="#EA4335" stroke="#1b1b1f" stroke-width="2"/>
+<rect x="304" y="701" width="16" height="16" rx="4" fill="#34A853" stroke="#1b1b1f" stroke-width="2"/>
+<rect x="320" y="701" width="16" height="16" rx="4" fill="#4285F4" stroke="#1b1b1f" stroke-width="2"/>
+<rect x="584" y="50" width="146" height="28" rx="14" fill="#fff" fill-opacity=".07"/>
+<circle cx="600" cy="64" r="9" fill="url(#ag)"/>
+<text x="600" y="67.24" text-anchor="middle" class="av" font-size="9">C</text>
+<text x="616" y="69" class="bn2">Chief of Staff</text>
+<rect x="896" y="47" width="310" height="34" rx="17" fill="#1c1c21" stroke="url(#ac)" stroke-width="1.5"/>
+<path transform="translate(912 56)" d="M7 12.5A5.5 5.5 0 1 0 7 1.5a5.5 5.5 0 0 0 0 11zM11 11l3.5 3.5" fill="none" stroke="#a1a1aa" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="936" y="69" class="st">keep-alive</text>
+<text x="1120" y="69" class="mu" text-anchor="end">1 of 3</text>
+<path d="M1130 54v20" stroke="#fff" stroke-opacity=".12"/>
+<path transform="translate(1136 56)" d="M3.5 10 8 5.5 12.5 10" fill="none" stroke="#e4e4e7" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<path transform="translate(1158 56)" d="M3.5 6 8 10.5 12.5 6" fill="none" stroke="#e4e4e7" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<path transform="translate(1182 57)" d="M3.5 3.5l9 9M12.5 3.5l-9 9" fill="none" stroke="#a1a1aa" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<g><rect x="1092" y="90" width="110" height="22" rx="11" fill="#8B5CF6" fill-opacity=".16" stroke="url(#ac)" stroke-width="1.2"/>
+<path transform="translate(1100 95) scale(.75)" d="M8 1Q8.8 7.2 15 8 8.8 8.8 8 15 7.2 8.8 1 8 7.2 7.2 8 1Z" fill="url(#ac)"/>
+<text x="1116" y="105" class="co">Chat search</text>
+</g>
+<text x="642" y="240" class="sn" text-anchor="end">Message from</text>
+<circle cx="654" cy="235.5" r="6" fill="url(#ag)"/>
+<text x="654" y="237.66" text-anchor="middle" class="av" font-size="6"></text>
+<text x="666" y="240" class="sn2">Chief of Staff</text>
+<rect x="396" y="254" width="520" height="68" rx="16" fill="#1e1e23"/>
+<rect x="411" y="270" width="72" height="20" rx="4" fill="url(#ab)" fill-opacity="1"/>
+<text x="414" y="285" class="msg">Keep-alive voice is on, so this call won’t hang up after</text>
+<text x="414" y="307" class="msg">15 quiet minutes. I’ll idle here until you need me.</text>
+<rect x="536" y="338" width="380" height="46" rx="16" fill="#2c2c33"/>
+<text x="554" y="369" class="msg">Check my calendar and lower the music while we talk.</text>
+<rect x="396" y="400" width="520" height="98" rx="16" fill="#1e1e23"/>
+<text x="414" y="461" class="msg">Three meetings today; the first is at 10:00. Music drops</text>
+<text x="414" y="483" class="msg">to 20% while I talk and 5% while you do.</text>
+<rect x="412" y="414" width="196" height="24" rx="12" fill="#fff" fill-opacity=".06" stroke="#fff" stroke-opacity=".1"/>
+<path transform="translate(420 418)" d="M5.5 1.5v3.5M10.5 1.5v3.5M3 5h10v2.5a5 5 0 0 1-10 0zM8 12.5v2.5" fill="none" stroke="#C4B5FD" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="442" y="431" class="chip">calendar.today · Voice MCP</text>
+<rect x="396" y="514" width="520" height="68" rx="16" fill="#1e1e23"/>
+<rect x="411" y="530" width="72" height="20" rx="4" fill="#8B5CF6" fill-opacity="0.35"/>
+<text x="414" y="545" class="msg">Keep-alive also reconnects if the line drops, so you</text>
+<text x="414" y="567" class="msg">can leave me running in the background all day.</text>
+<rect x="616" y="598" width="300" height="46" rx="16" fill="#2c2c33"/>
+<text x="634" y="629" class="msg">Perfect. Add a folder for travel bots.</text>
+<rect x="396" y="670" width="520" height="46" rx="23" fill="#1c1c21" stroke="#fff" stroke-opacity=".1"/>
+<path transform="translate(412 685)" d="M8 2v12M2 8h12" fill="none" stroke="#a1a1aa" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="440" y="698" class="ph">Message Chief of Staff</text>
+<circle cx="892" cy="693" r="15" fill="#f4f4f5"/>
+<path transform="translate(884 685)" d="M8 1.5a2.5 2.5 0 0 1 2.5 2.5v3.5a2.5 2.5 0 0 1-5 0V4A2.5 2.5 0 0 1 8 1.5zM3.5 7.5a4.5 4.5 0 0 0 9 0M8 12v2.5" fill="none" stroke="#18181b" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="944" y="182" width="304" height="330" rx="16" fill="#000" opacity=".55" filter="url(#sh2)"/>
+<rect x="944" y="170" width="304" height="330" rx="16" fill="#18181c" stroke="#fff" stroke-opacity=".12"/>
+<text x="964" y="204" class="h2">Push to Talk</text>
+<text x="1228" y="204" class="mu" text-anchor="end">Settings</text>
+<path d="M944 220h304" stroke="#fff" stroke-opacity=".08"/>
+<text x="964" y="250" class="lb">Push-to-talk key</text>
+<rect x="1136" y="234" width="92" height="24" rx="6" fill="#2a2a30" stroke="#fff" stroke-opacity=".14"/>
+<text x="1182" y="250" class="kc" text-anchor="middle">Right Option</text>
+<text x="964" y="294" class="lb">Music while Grok talks</text>
+<text x="1228" y="294" class="mu" text-anchor="end">20%</text>
+<rect x="964" y="308" width="264" height="4" rx="2" fill="#fff" fill-opacity=".12"/><rect x="964" y="308" width="52.799999999999955" height="4" rx="2" fill="url(#ab)"/>
+<circle cx="1016.8" cy="310" r="8" fill="#fff"/>
+<text x="964" y="346" class="lb">Music while I talk</text>
+<text x="1228" y="346" class="mu" text-anchor="end">5%</text>
+<rect x="964" y="360" width="264" height="4" rx="2" fill="#fff" fill-opacity=".12"/><rect x="964" y="360" width="13.200000000000045" height="4" rx="2" fill="url(#ab)"/>
+<circle cx="977.2" cy="362" r="8" fill="#fff"/>
+<path d="M964 388h264" stroke="#fff" stroke-opacity=".08"/>
+<text x="964" y="420" class="lb">Keep-alive voice</text>
+<rect x="1188" y="406" width="40" height="22" rx="11" fill="url(#ab)"/><circle cx="1217" cy="417" r="8" fill="#fff"/>
+<text x="964" y="466" class="lb">Speaker</text>
+<rect x="1108" y="450" width="120" height="24" rx="6" fill="#2a2a30" stroke="#fff" stroke-opacity=".14"/>
+<text x="1120" y="466" class="kc2">System Default</text>
+<path transform="translate(1208 454)" d="M4 6l4 4 4-4" fill="none" stroke="#a1a1aa" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<g><rect x="1108" y="159" width="124" height="22" rx="11" fill="#8B5CF6" fill-opacity=".16" stroke="url(#ac)" stroke-width="1.2"/>
+<path transform="translate(1116 164) scale(.75)" d="M8 1Q8.8 7.2 15 8 8.8 8.8 8 15 7.2 8.8 1 8 7.2 7.2 8 1Z" fill="url(#ac)"/>
+<text x="1132" y="174" class="co">Music ducking</text>
+</g>
+</svg>
