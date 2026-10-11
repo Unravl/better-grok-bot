@@ -1,0 +1,25 @@
+{
+	"name": "better-grok-bot",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"license": "MIT",
+	"description": "Plugins, themes and hooks for the Grok Bot desktop app — macOS, Windows, Linux",
+	"scripts": {
+		"embed": "bun core/scripts/embed.ts",
+		"bgb": "bun run embed && bun core/cli.ts",
+		"typecheck": "bun run embed && tsc --noEmit",
+		"test": "bun run embed && bun test",
+		"build:binary": "bun scripts/build-binaries.ts compile --host --out dist",
+		"dev:install": "bun run build:binary && ./dist/bgb setup --yes"
+	},
+	"dependencies": {
+		"@electron/asar": "^3.2.17",
+		"fflate": "^0.8.2"
+	},
+	"devDependencies": {
+		"@happy-dom/global-registrator": "^20.0.0",
+		"@types/bun": "latest",
+		"typescript": "^5.9.0"
+	}
+}
