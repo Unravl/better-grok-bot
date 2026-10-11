@@ -1,4 +1,15 @@
+import outputDevice from "../../plugins/output-device/plugin.ts";
+import pushToTalk from "../../plugins/push-to-talk/plugin.ts";
+import startup from "../../plugins/startup/plugin.ts";
+import voiceKeepalive from "../../plugins/voice-keepalive/plugin.ts";
+import { BUNDLED_RUNTIMES, BUNDLED_STYLES } from "../generated/embedded.ts";
 import type { BundledPlugin } from "./types.ts";
 
-/** Seed; slice S5 replaces this module with the four bundled plugins. */
-export const BUNDLED_PLUGINS: readonly BundledPlugin[] = [];
+/** The plugins shipped inside `bgb`, ordered by id; runtimes and styles are bundled by `core/scripts/embed.ts`. */
+export const BUNDLED_PLUGINS: readonly BundledPlugin[] = [outputDevice, pushToTalk, startup, voiceKeepalive]
+	.toSorted((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+	.map((definition) => ({
+		definition,
+		runtimeJs: BUNDLED_RUNTIMES[definition.id],
+		stylesCss: BUNDLED_STYLES[definition.id],
+	}));
