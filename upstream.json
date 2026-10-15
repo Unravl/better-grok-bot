@@ -479,6 +479,540 @@
 				}
 			],
 			"reportedHash": "1af1fbb3455e607a3866470b72f69be4415184dd54c2d00906c5a0b26f9e9200"
+		},
+		"darwin-arm64@0.71.2+92808c0ad869b2e3725dbc3b8fa2fcc991687502": {
+			"status": "fail",
+			"bgbCommit": "327a64db4062e52b3d9cc4bbf5823d89c6d1f83e",
+			"checkedAt": "2026-10-15T11:46:01.465Z",
+			"failures": [
+				{
+					"check": "compat",
+					"pluginId": "bgb-client",
+					"patchId": "sand-client",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "call-talk-button",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "settings-rows",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "sections-storage",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "startup",
+					"patchId": "composer-voice-call",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "startup",
+					"patchId": "settings-rows",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "sidebar-dock",
+					"matches": 1,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "chat-popover",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "docked-control-size",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-keepalive",
+					"patchId": "reconnect-on-close",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-keepalive",
+					"patchId": "session-may-reconnect",
+					"matches": 0,
+					"expected": 2
+				},
+				{
+					"check": "e2e",
+					"message": "6 runtime state over CDP: timed out after 30 s waiting for every core and bundled plugin active (last error: not active: bgb-client=patch-failed, push-to-talk=patch-failed, sidebar-folders=patch-failed, startup=patch-failed, voice-dock=patch-failed, voice-keepalive=patch-failed)"
+				},
+				{
+					"check": "e2e",
+					"message": "7 mutation and reload: timed out after 120 s waiting for voice-keepalive active in a renderer on 273f0c66802dc223b4af170c8d10caa423283cadb18f2d61ac5e766ac2a3cb7b (last error: evaluation threw: {\"exceptionId\":2,\"text\":\"Uncaught\",\"lineNumber\":0,\"columnNumber\":0,\"scriptId\":\"55\",\"exception\":{\"type\":\"object\",\"subtype\":\"error\",\"className\":\"ReferenceError\",\"description\":\"ReferenceError: BetterGrokBot is not defined\\n    at <anonymous>:1:1\",\"objectId\":\"6903135263263051746.5.2\"}})"
+				}
+			],
+			"reportedHash": "54e6b8fb1363eed0958e84fd1d1eaa74b921134296c1aa77c776b3cb7efac88a"
+		},
+		"darwin-x64@0.71.2+92808c0ad869b2e3725dbc3b8fa2fcc991687502": {
+			"status": "fail",
+			"bgbCommit": "327a64db4062e52b3d9cc4bbf5823d89c6d1f83e",
+			"checkedAt": "2026-10-15T11:46:01.465Z",
+			"failures": [
+				{
+					"check": "compat",
+					"pluginId": "bgb-client",
+					"patchId": "sand-client",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "call-talk-button",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "settings-rows",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "sections-storage",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "startup",
+					"patchId": "composer-voice-call",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "startup",
+					"patchId": "settings-rows",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "sidebar-dock",
+					"matches": 1,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "chat-popover",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "docked-control-size",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-keepalive",
+					"patchId": "reconnect-on-close",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-keepalive",
+					"patchId": "session-may-reconnect",
+					"matches": 0,
+					"expected": 2
+				}
+			],
+			"reportedHash": "54e6b8fb1363eed0958e84fd1d1eaa74b921134296c1aa77c776b3cb7efac88a"
+		},
+		"win32-x64-user@0.71.2+92808c0ad869b2e3725dbc3b8fa2fcc991687502": {
+			"status": "fail",
+			"bgbCommit": "327a64db4062e52b3d9cc4bbf5823d89c6d1f83e",
+			"checkedAt": "2026-10-15T11:46:01.465Z",
+			"failures": [
+				{
+					"check": "compat",
+					"pluginId": "bgb-client",
+					"patchId": "sand-client",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "call-talk-button",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "settings-rows",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "sections-storage",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "startup",
+					"patchId": "composer-voice-call",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "startup",
+					"patchId": "settings-rows",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "sidebar-dock",
+					"matches": 1,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "chat-popover",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "docked-control-size",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-keepalive",
+					"patchId": "reconnect-on-close",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-keepalive",
+					"patchId": "session-may-reconnect",
+					"matches": 0,
+					"expected": 2
+				},
+				{
+					"check": "e2e",
+					"message": "6 runtime state over CDP: timed out after 30 s waiting for every core and bundled plugin active (last error: not active: bgb-client=patch-failed, push-to-talk=patch-failed, sidebar-folders=patch-failed, startup=patch-failed, voice-dock=patch-failed, voice-keepalive=patch-failed)"
+				},
+				{
+					"check": "e2e",
+					"message": "7 mutation and reload: timed out after 120 s waiting for voice-keepalive active in a renderer on 7ccf788c145a284341924f9bec07ad9ca10efa2f6e96bb94392b7c6a284d04bc (last error: evaluation threw: {\"exceptionId\":2,\"text\":\"Uncaught\",\"lineNumber\":0,\"columnNumber\":0,\"scriptId\":\"55\",\"exception\":{\"type\":\"object\",\"subtype\":\"error\",\"className\":\"ReferenceError\",\"description\":\"ReferenceError: BetterGrokBot is not defined\\n    at <anonymous>:1:1\",\"objectId\":\"861731600553099574.5.2\"}})"
+				}
+			],
+			"reportedHash": "54e6b8fb1363eed0958e84fd1d1eaa74b921134296c1aa77c776b3cb7efac88a"
+		},
+		"win32-arm64-user@0.71.2+92808c0ad869b2e3725dbc3b8fa2fcc991687502": {
+			"status": "fail",
+			"bgbCommit": "327a64db4062e52b3d9cc4bbf5823d89c6d1f83e",
+			"checkedAt": "2026-10-15T11:46:01.465Z",
+			"failures": [
+				{
+					"check": "compat",
+					"pluginId": "bgb-client",
+					"patchId": "sand-client",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "call-talk-button",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "settings-rows",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "sections-storage",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "startup",
+					"patchId": "composer-voice-call",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "startup",
+					"patchId": "settings-rows",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "sidebar-dock",
+					"matches": 1,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "chat-popover",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "docked-control-size",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-keepalive",
+					"patchId": "reconnect-on-close",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-keepalive",
+					"patchId": "session-may-reconnect",
+					"matches": 0,
+					"expected": 2
+				}
+			],
+			"reportedHash": "54e6b8fb1363eed0958e84fd1d1eaa74b921134296c1aa77c776b3cb7efac88a"
+		},
+		"linux-x64@0.71.2+92808c0ad869b2e3725dbc3b8fa2fcc991687502": {
+			"status": "fail",
+			"bgbCommit": "327a64db4062e52b3d9cc4bbf5823d89c6d1f83e",
+			"checkedAt": "2026-10-15T11:46:01.465Z",
+			"failures": [
+				{
+					"check": "compat",
+					"pluginId": "bgb-client",
+					"patchId": "sand-client",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "call-talk-button",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "settings-rows",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "sections-storage",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "startup",
+					"patchId": "composer-voice-call",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "startup",
+					"patchId": "settings-rows",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "sidebar-dock",
+					"matches": 1,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "chat-popover",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "docked-control-size",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-keepalive",
+					"patchId": "reconnect-on-close",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-keepalive",
+					"patchId": "session-may-reconnect",
+					"matches": 0,
+					"expected": 2
+				},
+				{
+					"check": "e2e",
+					"message": "6 runtime state over CDP: timed out after 30 s waiting for every core and bundled plugin active (last error: not active: bgb-client=patch-failed, push-to-talk=patch-failed, sidebar-folders=patch-failed, startup=patch-failed, voice-dock=patch-failed, voice-keepalive=patch-failed)"
+				},
+				{
+					"check": "e2e",
+					"message": "7 mutation and reload: timed out after 120 s waiting for voice-keepalive active in a renderer on e5c46e7bfdfc2638de1f538ee2c3396cc84c32ce5cd4cb0da946560e38a0992e (last error: evaluation threw: {\"exceptionId\":3,\"text\":\"Uncaught\",\"lineNumber\":0,\"columnNumber\":0,\"scriptId\":\"55\",\"exception\":{\"type\":\"object\",\"subtype\":\"error\",\"className\":\"ReferenceError\",\"description\":\"ReferenceError: BetterGrokBot is not defined\\n    at <anonymous>:1:1\",\"objectId\":\"-9080919877299501244.7.2\"}})"
+				}
+			],
+			"reportedHash": "54e6b8fb1363eed0958e84fd1d1eaa74b921134296c1aa77c776b3cb7efac88a"
+		},
+		"linux-arm64@0.71.2+92808c0ad869b2e3725dbc3b8fa2fcc991687502": {
+			"status": "fail",
+			"bgbCommit": "327a64db4062e52b3d9cc4bbf5823d89c6d1f83e",
+			"checkedAt": "2026-10-15T11:46:01.465Z",
+			"failures": [
+				{
+					"check": "compat",
+					"pluginId": "bgb-client",
+					"patchId": "sand-client",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "call-talk-button",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "settings-rows",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "sections-storage",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "startup",
+					"patchId": "composer-voice-call",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "startup",
+					"patchId": "settings-rows",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "sidebar-dock",
+					"matches": 1,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "chat-popover",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "docked-control-size",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-keepalive",
+					"patchId": "reconnect-on-close",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-keepalive",
+					"patchId": "session-may-reconnect",
+					"matches": 0,
+					"expected": 2
+				}
+			],
+			"reportedHash": "54e6b8fb1363eed0958e84fd1d1eaa74b921134296c1aa77c776b3cb7efac88a"
 		}
 	}
 }
