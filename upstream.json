@@ -19103,6 +19103,1686 @@
 				}
 			],
 			"reportedHash": "4bc3bcf85419eaa87d1e3fb39d3493785a98a5b5f678b67ccb65a707aad5008d"
+		},
+		"darwin-arm64@0.79.2+676f0815a4013954f4c8e3f4ac413acfbac0376c": {
+			"status": "fail",
+			"bgbCommit": "327a64db4062e52b3d9cc4bbf5823d89c6d1f83e",
+			"checkedAt": "2026-11-06T01:42:08.439Z",
+			"failures": [
+				{
+					"check": "compat",
+					"pluginId": "bgb-react",
+					"patchId": "react-namespace",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bgb-settings",
+					"patchId": "general-section",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bgb-client",
+					"patchId": "sand-client",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bgb-brand",
+					"patchId": "catalog-activate",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bgb-brand",
+					"patchId": "catalog-load",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bgb-brand",
+					"patchId": "sidebar-brand",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bot-instructions",
+					"patchId": "overview-instructions",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "chat-search",
+					"patchId": "native-open-command",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "chat-search",
+					"patchId": "header-search-button",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "chat-search",
+					"patchId": "native-finder-history",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "chat-search",
+					"patchId": "match-counter-wording",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "output-device",
+					"patchId": "voice-call-context",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "output-device",
+					"patchId": "voice-preview-element",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "output-device",
+					"patchId": "speaker-settings-row",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "realtime-turn-detection",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "realtime-session",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "realtime-mic-gate",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "call-talk-button",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "settings-rows",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "sections-storage",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "default-name",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "section-agent-order",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "drag-over",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "drop-in-section",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "header-count",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "startup",
+					"patchId": "composer-voice-call",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "startup",
+					"patchId": "settings-rows",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "sidebar-dock",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "chat-popover",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "docked-control-size",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-keepalive",
+					"patchId": "reconnect-on-close",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-keepalive",
+					"patchId": "session-may-reconnect",
+					"matches": 0,
+					"expected": 2
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-keepalive",
+					"patchId": "settings-row",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-mcp",
+					"patchId": "prepare-voice-tools",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-mcp",
+					"patchId": "capture-completed-arguments",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-mcp",
+					"patchId": "dispatch-voice-tools",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-mcp",
+					"patchId": "settings-row",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "weekly-usage",
+					"patchId": "sidebar-usage-bar",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "e2e",
+					"message": "6 runtime state over CDP: timed out after 30 s waiting for every core and bundled plugin active (last error: not active: bgb-react=patch-failed, bgb-settings=patch-failed, bgb-client=patch-failed, bgb-brand=patch-failed, bot-instructions=patch-failed, chat-search=patch-failed, output-device=patch-failed, push-to-talk=patch-failed, sidebar-folders=patch-failed, startup=patch-failed, voice-dock=patch-failed, voice-keepalive=patch-failed, weekly-usage=patch-failed)"
+				},
+				{
+					"check": "e2e",
+					"message": "7 mutation and reload: timed out after 120 s waiting for voice-keepalive active in a renderer on 4a5169da08ff0435d82ff544e4dcb996b66398a41e2877cd59e61b53a8e30535 (last error: evaluation threw: {\"exceptionId\":2,\"text\":\"Uncaught\",\"lineNumber\":0,\"columnNumber\":0,\"scriptId\":\"61\",\"exception\":{\"type\":\"object\",\"subtype\":\"error\",\"className\":\"ReferenceError\",\"description\":\"ReferenceError: BetterGrokBot is not defined\\n    at <anonymous>:1:1\",\"objectId\":\"6341870060752171596.5.2\"}})"
+				}
+			],
+			"reportedHash": "1ef4ca44a99527e118ea8fda54554db969fef3966f171b396656a77e2234e8a5"
+		},
+		"darwin-x64@0.79.2+676f0815a4013954f4c8e3f4ac413acfbac0376c": {
+			"status": "fail",
+			"bgbCommit": "327a64db4062e52b3d9cc4bbf5823d89c6d1f83e",
+			"checkedAt": "2026-11-06T01:42:08.439Z",
+			"failures": [
+				{
+					"check": "compat",
+					"pluginId": "bgb-react",
+					"patchId": "react-namespace",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bgb-settings",
+					"patchId": "general-section",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bgb-client",
+					"patchId": "sand-client",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bgb-brand",
+					"patchId": "catalog-activate",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bgb-brand",
+					"patchId": "catalog-load",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bgb-brand",
+					"patchId": "sidebar-brand",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bot-instructions",
+					"patchId": "overview-instructions",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "chat-search",
+					"patchId": "native-open-command",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "chat-search",
+					"patchId": "header-search-button",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "chat-search",
+					"patchId": "native-finder-history",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "chat-search",
+					"patchId": "match-counter-wording",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "output-device",
+					"patchId": "voice-call-context",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "output-device",
+					"patchId": "voice-preview-element",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "output-device",
+					"patchId": "speaker-settings-row",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "realtime-turn-detection",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "realtime-session",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "realtime-mic-gate",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "call-talk-button",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "settings-rows",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "sections-storage",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "default-name",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "section-agent-order",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "drag-over",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "drop-in-section",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "header-count",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "startup",
+					"patchId": "composer-voice-call",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "startup",
+					"patchId": "settings-rows",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "sidebar-dock",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "chat-popover",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "docked-control-size",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-keepalive",
+					"patchId": "reconnect-on-close",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-keepalive",
+					"patchId": "session-may-reconnect",
+					"matches": 0,
+					"expected": 2
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-keepalive",
+					"patchId": "settings-row",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-mcp",
+					"patchId": "prepare-voice-tools",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-mcp",
+					"patchId": "capture-completed-arguments",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-mcp",
+					"patchId": "dispatch-voice-tools",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-mcp",
+					"patchId": "settings-row",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "weekly-usage",
+					"patchId": "sidebar-usage-bar",
+					"matches": 0,
+					"expected": 1
+				}
+			],
+			"reportedHash": "1ef4ca44a99527e118ea8fda54554db969fef3966f171b396656a77e2234e8a5"
+		},
+		"win32-x64-user@0.79.2+676f0815a4013954f4c8e3f4ac413acfbac0376c": {
+			"status": "fail",
+			"bgbCommit": "327a64db4062e52b3d9cc4bbf5823d89c6d1f83e",
+			"checkedAt": "2026-11-06T01:42:08.439Z",
+			"failures": [
+				{
+					"check": "compat",
+					"pluginId": "bgb-react",
+					"patchId": "react-namespace",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bgb-settings",
+					"patchId": "general-section",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bgb-client",
+					"patchId": "sand-client",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bgb-brand",
+					"patchId": "catalog-activate",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bgb-brand",
+					"patchId": "catalog-load",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bgb-brand",
+					"patchId": "sidebar-brand",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bot-instructions",
+					"patchId": "overview-instructions",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "chat-search",
+					"patchId": "native-open-command",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "chat-search",
+					"patchId": "header-search-button",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "chat-search",
+					"patchId": "native-finder-history",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "chat-search",
+					"patchId": "match-counter-wording",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "output-device",
+					"patchId": "voice-call-context",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "output-device",
+					"patchId": "voice-preview-element",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "output-device",
+					"patchId": "speaker-settings-row",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "realtime-turn-detection",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "realtime-session",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "realtime-mic-gate",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "call-talk-button",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "settings-rows",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "sections-storage",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "default-name",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "section-agent-order",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "drag-over",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "drop-in-section",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "header-count",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "startup",
+					"patchId": "composer-voice-call",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "startup",
+					"patchId": "settings-rows",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "sidebar-dock",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "chat-popover",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "docked-control-size",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-keepalive",
+					"patchId": "reconnect-on-close",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-keepalive",
+					"patchId": "session-may-reconnect",
+					"matches": 0,
+					"expected": 2
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-keepalive",
+					"patchId": "settings-row",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-mcp",
+					"patchId": "prepare-voice-tools",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-mcp",
+					"patchId": "capture-completed-arguments",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-mcp",
+					"patchId": "dispatch-voice-tools",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-mcp",
+					"patchId": "settings-row",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "weekly-usage",
+					"patchId": "sidebar-usage-bar",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "e2e",
+					"message": "6 runtime state over CDP: timed out after 30 s waiting for every core and bundled plugin active (last error: not active: bgb-react=patch-failed, bgb-settings=patch-failed, bgb-client=patch-failed, bgb-brand=patch-failed, bot-instructions=patch-failed, chat-search=patch-failed, output-device=patch-failed, push-to-talk=patch-failed, sidebar-folders=patch-failed, startup=patch-failed, voice-dock=patch-failed, voice-keepalive=patch-failed, weekly-usage=patch-failed)"
+				},
+				{
+					"check": "e2e",
+					"message": "7 mutation and reload: timed out after 120 s waiting for voice-keepalive active in a renderer on 66d2a1693bcf02b04e0ae1dcbf92dba11cbfe0e0eef4bee6a1b06a21dc45ecbc (last error: evaluation threw: {\"exceptionId\":2,\"text\":\"Uncaught\",\"lineNumber\":0,\"columnNumber\":0,\"scriptId\":\"61\",\"exception\":{\"type\":\"object\",\"subtype\":\"error\",\"className\":\"ReferenceError\",\"description\":\"ReferenceError: BetterGrokBot is not defined\\n    at <anonymous>:1:1\",\"objectId\":\"963312576085223365.5.2\"}})"
+				}
+			],
+			"reportedHash": "1ef4ca44a99527e118ea8fda54554db969fef3966f171b396656a77e2234e8a5"
+		},
+		"win32-arm64-user@0.79.2+676f0815a4013954f4c8e3f4ac413acfbac0376c": {
+			"status": "fail",
+			"bgbCommit": "327a64db4062e52b3d9cc4bbf5823d89c6d1f83e",
+			"checkedAt": "2026-11-06T01:42:08.439Z",
+			"failures": [
+				{
+					"check": "compat",
+					"pluginId": "bgb-react",
+					"patchId": "react-namespace",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bgb-settings",
+					"patchId": "general-section",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bgb-client",
+					"patchId": "sand-client",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bgb-brand",
+					"patchId": "catalog-activate",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bgb-brand",
+					"patchId": "catalog-load",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bgb-brand",
+					"patchId": "sidebar-brand",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bot-instructions",
+					"patchId": "overview-instructions",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "chat-search",
+					"patchId": "native-open-command",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "chat-search",
+					"patchId": "header-search-button",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "chat-search",
+					"patchId": "native-finder-history",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "chat-search",
+					"patchId": "match-counter-wording",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "output-device",
+					"patchId": "voice-call-context",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "output-device",
+					"patchId": "voice-preview-element",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "output-device",
+					"patchId": "speaker-settings-row",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "realtime-turn-detection",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "realtime-session",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "realtime-mic-gate",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "call-talk-button",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "settings-rows",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "sections-storage",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "default-name",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "section-agent-order",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "drag-over",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "drop-in-section",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "header-count",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "startup",
+					"patchId": "composer-voice-call",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "startup",
+					"patchId": "settings-rows",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "sidebar-dock",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "chat-popover",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "docked-control-size",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-keepalive",
+					"patchId": "reconnect-on-close",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-keepalive",
+					"patchId": "session-may-reconnect",
+					"matches": 0,
+					"expected": 2
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-keepalive",
+					"patchId": "settings-row",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-mcp",
+					"patchId": "prepare-voice-tools",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-mcp",
+					"patchId": "capture-completed-arguments",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-mcp",
+					"patchId": "dispatch-voice-tools",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-mcp",
+					"patchId": "settings-row",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "weekly-usage",
+					"patchId": "sidebar-usage-bar",
+					"matches": 0,
+					"expected": 1
+				}
+			],
+			"reportedHash": "1ef4ca44a99527e118ea8fda54554db969fef3966f171b396656a77e2234e8a5"
+		},
+		"linux-x64@0.79.2+676f0815a4013954f4c8e3f4ac413acfbac0376c": {
+			"status": "fail",
+			"bgbCommit": "327a64db4062e52b3d9cc4bbf5823d89c6d1f83e",
+			"checkedAt": "2026-11-06T01:42:08.439Z",
+			"failures": [
+				{
+					"check": "compat",
+					"pluginId": "bgb-react",
+					"patchId": "react-namespace",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bgb-settings",
+					"patchId": "general-section",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bgb-client",
+					"patchId": "sand-client",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bgb-brand",
+					"patchId": "catalog-activate",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bgb-brand",
+					"patchId": "catalog-load",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bgb-brand",
+					"patchId": "sidebar-brand",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bot-instructions",
+					"patchId": "overview-instructions",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "chat-search",
+					"patchId": "native-open-command",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "chat-search",
+					"patchId": "header-search-button",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "chat-search",
+					"patchId": "native-finder-history",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "chat-search",
+					"patchId": "match-counter-wording",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "output-device",
+					"patchId": "voice-call-context",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "output-device",
+					"patchId": "voice-preview-element",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "output-device",
+					"patchId": "speaker-settings-row",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "realtime-turn-detection",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "realtime-session",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "realtime-mic-gate",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "call-talk-button",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "settings-rows",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "sections-storage",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "default-name",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "section-agent-order",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "drag-over",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "drop-in-section",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "header-count",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "startup",
+					"patchId": "composer-voice-call",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "startup",
+					"patchId": "settings-rows",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "sidebar-dock",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "chat-popover",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "docked-control-size",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-keepalive",
+					"patchId": "reconnect-on-close",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-keepalive",
+					"patchId": "session-may-reconnect",
+					"matches": 0,
+					"expected": 2
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-keepalive",
+					"patchId": "settings-row",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-mcp",
+					"patchId": "prepare-voice-tools",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-mcp",
+					"patchId": "capture-completed-arguments",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-mcp",
+					"patchId": "dispatch-voice-tools",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-mcp",
+					"patchId": "settings-row",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "weekly-usage",
+					"patchId": "sidebar-usage-bar",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "e2e",
+					"message": "5 debug launch: timed out after 90 s waiting for the patched renderer page on the debug port (last error: ECONNREFUSED: Unable to connect. Is the computer able to access the url?)"
+				},
+				{
+					"check": "e2e",
+					"message": "6 runtime state over CDP: no CDP session (the debug launch failed)"
+				},
+				{
+					"check": "e2e",
+					"message": "7 mutation and reload: no CDP session (the debug launch failed)"
+				},
+				{
+					"check": "e2e",
+					"message": "8 live theme: no CDP session (the debug launch failed)"
+				},
+				{
+					"check": "e2e",
+					"message": "10 port move: no CDP session (the debug launch failed)"
+				}
+			],
+			"reportedHash": "1ef4ca44a99527e118ea8fda54554db969fef3966f171b396656a77e2234e8a5"
+		},
+		"linux-arm64@0.79.2+676f0815a4013954f4c8e3f4ac413acfbac0376c": {
+			"status": "fail",
+			"bgbCommit": "327a64db4062e52b3d9cc4bbf5823d89c6d1f83e",
+			"checkedAt": "2026-11-06T01:42:08.439Z",
+			"failures": [
+				{
+					"check": "compat",
+					"pluginId": "bgb-react",
+					"patchId": "react-namespace",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bgb-settings",
+					"patchId": "general-section",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bgb-client",
+					"patchId": "sand-client",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bgb-brand",
+					"patchId": "catalog-activate",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bgb-brand",
+					"patchId": "catalog-load",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bgb-brand",
+					"patchId": "sidebar-brand",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "bot-instructions",
+					"patchId": "overview-instructions",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "chat-search",
+					"patchId": "native-open-command",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "chat-search",
+					"patchId": "header-search-button",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "chat-search",
+					"patchId": "native-finder-history",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "chat-search",
+					"patchId": "match-counter-wording",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "output-device",
+					"patchId": "voice-call-context",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "output-device",
+					"patchId": "voice-preview-element",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "output-device",
+					"patchId": "speaker-settings-row",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "realtime-turn-detection",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "realtime-session",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "realtime-mic-gate",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "call-talk-button",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "push-to-talk",
+					"patchId": "settings-rows",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "sections-storage",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "default-name",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "section-agent-order",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "drag-over",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "drop-in-section",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "sidebar-folders",
+					"patchId": "header-count",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "startup",
+					"patchId": "composer-voice-call",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "startup",
+					"patchId": "settings-rows",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "sidebar-dock",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "chat-popover",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-dock",
+					"patchId": "docked-control-size",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-keepalive",
+					"patchId": "reconnect-on-close",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-keepalive",
+					"patchId": "session-may-reconnect",
+					"matches": 0,
+					"expected": 2
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-keepalive",
+					"patchId": "settings-row",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-mcp",
+					"patchId": "prepare-voice-tools",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-mcp",
+					"patchId": "capture-completed-arguments",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-mcp",
+					"patchId": "dispatch-voice-tools",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "voice-mcp",
+					"patchId": "settings-row",
+					"matches": 0,
+					"expected": 1
+				},
+				{
+					"check": "compat",
+					"pluginId": "weekly-usage",
+					"patchId": "sidebar-usage-bar",
+					"matches": 0,
+					"expected": 1
+				}
+			],
+			"reportedHash": "1ef4ca44a99527e118ea8fda54554db969fef3966f171b396656a77e2234e8a5"
 		}
 	}
 }
